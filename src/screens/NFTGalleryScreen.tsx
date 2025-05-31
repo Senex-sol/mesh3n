@@ -130,14 +130,17 @@ export default function NFTGalleryScreen() {
       }
 
       // If we got fewer NFTs than the limit, there are no more to load
-      setHasMore(filteredNFTs.length === LIMIT);
+      setHasMore(data.result.total === LIMIT);
     }
     setIsLoadingMore(false);
   }, [data, page]);
 
-  // Handle loading more NFTs
+  // Handle loading more NFTs when scrolling to the bottom
   const handleLoadMore = () => {
-    if (!isLoading && hasMore && !isLoadingMore && activeTab === 'undecided') {
+    console.log('handleLoadMore called: ' + activeTab + ', ' + hasMore + ', ' + isLoadingMore + ', ' + isLoading);
+    // Only load more in the undecided tab and if there are more items to load
+    if (activeTab === 'undecided' && hasMore && !isLoadingMore && !isLoading) {
+      console.log('Loading more NFTs, page:', page + 1);
       setIsLoadingMore(true);
       setPage(prevPage => prevPage + 1);
     }
@@ -274,13 +277,13 @@ export default function NFTGalleryScreen() {
     }
   };
 
-  // Render footer with loading indicator
+  // Render footer with loading indicator for pagination
   const renderFooter = () => {
     if (!isLoadingMore || activeTab !== 'undecided') return null;
     return (
       <View style={styles.footer}>
-        <ActivityIndicator size="small" />
-        <Text style={styles.footerText}>Loading more...</Text>
+        <ActivityIndicator size="small" color="#2196F3" />
+        <Text style={styles.footerText}>Loading more NFTs...</Text>
       </View>
     );
   };

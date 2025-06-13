@@ -49,7 +49,7 @@ const Stack = createNativeStackNavigator();
 
 const AppStack = () => {
   return (
-    <Stack.Navigator initialRouteName={"Home"}>
+    <Stack.Navigator initialRouteName={"NFT Gallery"}>
       <Stack.Screen
         name="HomeStack"
         component={HomeNavigator}

@@ -23,6 +23,14 @@ export function HomeNavigator() {
         header: () => <TopBar />,
         tabBarIcon: ({ focused, color, size }) => {
           switch (route.name) {
+            case "NFT Gallery":
+              return (
+                <MaterialCommunityIcon
+                  name={focused ? "image-multiple" : "image-multiple-outline"}
+                  size={size}
+                  color={color}
+                />
+              );
             case "Home":
               return (
                 <MaterialCommunityIcon
@@ -41,20 +49,12 @@ export function HomeNavigator() {
                   color={color}
                 />
               );
-            case "NFT Gallery":
-              return (
-                <MaterialCommunityIcon
-                  name={focused ? "image-multiple" : "image-multiple-outline"}
-                  size={size}
-                  color={color}
-                />
-              );
           }
         },
       })}
     >
-      <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="NFT Gallery" component={NFTGalleryScreen} />
+      <Tab.Screen name="Account" component={HomeScreen} />
       <Tab.Screen name="Blank" component={BlankScreen} />
     </Tab.Navigator>
   );

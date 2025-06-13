@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, StyleSheet, Image, Dimensions, FlatList, ActivityIndicator, TouchableOpacity, PanResponder, PanResponderInstance, Animated } from 'react-native';
+import { PublicKey } from '@solana/web3.js';
 import { useAuthorization } from '../utils/useAuthorization';
 import { useGetNFTs } from '../components/account/account-data-access';
-import { PublicKey } from '@solana/web3.js';
+import { SignInFeature } from "../components/sign-in/sign-in-feature";
 
 // Define types for NFT data structure
 interface NFTFile {
@@ -307,7 +308,7 @@ export default function NFTGalleryScreen() {
       return (
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" />
-          <Text>Loading NFTs...</Text>
+          <Text style={styles.centerText}>Loading NFTs...</Text>
         </View>
       );
     }
@@ -315,14 +316,14 @@ export default function NFTGalleryScreen() {
     if (error && page === 1) {
       return (
         <View style={styles.centerContainer}>
-          <Text>Error loading NFTs. Please try again.</Text>
+          <Text style={styles.centerText}>Error loading NFTs. Please try again.</Text>
         </View>
       );
     }
 
     return (
       <View style={styles.centerContainer}>
-        <Text>No NFTs found in this category.</Text>
+        <Text style={styles.centerText}>No NFTs found in this category.</Text>
       </View>
     );
   };
@@ -357,7 +358,8 @@ export default function NFTGalleryScreen() {
     <View style={styles.container}>
       {!selectedAccount ? (
         <View style={styles.centerContainer}>
-          <Text>Please connect a wallet to view your NFTs.</Text>
+          <Text style={styles.centerText}>Please connect a wallet to start.</Text>
+          <SignInFeature />
         </View>
       ) : (
         <>
@@ -387,6 +389,14 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 30,
+  },
+  centerText: {
+    fontSize: 18,
+    marginBottom: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    textAlign: 'center',
   },
   listContainer: {
     padding: 10,

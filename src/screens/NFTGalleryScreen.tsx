@@ -4,6 +4,8 @@ import { PublicKey } from '@solana/web3.js';
 import { useAuthorization } from '../utils/useAuthorization';
 import { useGetNFTs } from '../components/account/account-data-access';
 import { SignInFeature } from "../components/sign-in/sign-in-feature";
+import { HandshakeFeature } from "../components/handshake/handshake-feature";
+import { useAbly } from "../utils/AblyProvider";
 
 // Define types for NFT data structure
 interface NFTFile {
@@ -102,8 +104,9 @@ export default function NFTGalleryScreen() {
   const [activeTab, setActiveTab] = useState<'undecided' | 'want' | 'dont-want'>('undecided');
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const { ablyClient, getChannel, channels } = useAbly();
   const LIMIT = 20; // Number of NFTs per page
-  
+
   // Get NFT data
   const { data, isLoading, error } = useGetNFTs({
     address: selectedAccount?.publicKey || new PublicKey('11111111111111111111111111111111'),
@@ -360,6 +363,11 @@ export default function NFTGalleryScreen() {
         <View style={styles.centerContainer}>
           <Text style={styles.centerText}>Please connect a wallet to start.</Text>
           <SignInFeature />
+        </View>
+      ) : Object.keys(channels).length === 0 ? (
+        <View style={styles.centerContainer}>
+          <Text style={styles.centerText}>Start the handshake.</Text>
+          <HandshakeFeature />
         </View>
       ) : (
         <>

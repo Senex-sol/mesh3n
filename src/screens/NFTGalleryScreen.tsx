@@ -109,9 +109,14 @@ export default function NFTGalleryScreen() {
   const { swapPartner, sendSelectedNFTs, isConnected } = useSwap();
   const LIMIT = 20; // Number of NFTs per page
 
-  // Get NFT data
+  // Create a stable reference for NFT data fetching
+  const walletAddress = swapPartner?.walletAddress;
+  
+  // Always call useGetNFTs with consistent parameters
+  // Our modified hook will skip the actual fetch if using the dummy address
   const { data, isLoading, error } = useGetNFTs({
-    address: swapPartner?.walletAddress ? new PublicKey(swapPartner.walletAddress) : new PublicKey('11111111111111111111111111111111'),
+    // Use partner's wallet address if available, otherwise use dummy address
+    address: walletAddress ? new PublicKey(walletAddress) : new PublicKey('11111111111111111111111111111111'),
     page,
     limit: LIMIT
   });
@@ -180,7 +185,15 @@ export default function NFTGalleryScreen() {
     // Initialize PanResponder on component mount
     useEffect(() => {
       const newPanResponder = PanResponder.create({
-        onMoveShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: (_, gestureState) => {
+          // Slightly favor horizontal movements by applying a bias factor
+          // This makes the swipe detection more sensitive to horizontal movements
+          const horizontalBias = 0.6; // Bias factor (lower = more horizontal bias)
+          const isHorizontalSwipe = Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * horizontalBias;
+          // Also require a minimum movement to start handling the gesture
+          const hasMinimumMovement = Math.abs(gestureState.dx) > 6; // Slightly reduced threshold
+          return isHorizontalSwipe && hasMinimumMovement;
+        },
         onPanResponderMove: Animated.event([null, { dx: pan.x }], { useNativeDriver: false }),
         onPanResponderRelease: (_, gestureState) => {
           if (gestureState.dx > 120) {

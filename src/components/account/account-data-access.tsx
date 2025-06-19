@@ -16,6 +16,10 @@ import { useMobileWallet } from "../../utils/useMobileWallet";
 
 export function useGetNFTs({ address, page = 1, limit = 50 }: { address: PublicKey, page?: number, limit?: number }) {
   console.log('Calling useGetNFTs with address: ' + address.toBase58() + ', page: ' + page + ', limit: ' + limit);
+  
+  // Check if this is the dummy address (11111111111111111111111111111111)
+  const isDummyAddress = address.toBase58() === '11111111111111111111111111111111';
+  
   const options = {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
@@ -25,9 +29,17 @@ export function useGetNFTs({ address, page = 1, limit = 50 }: { address: PublicK
   return useQuery({
     queryKey: ["get-nfts", { address, page, limit }],
     queryFn: async () => {
+      // If it's the dummy address, return an empty result without fetching
+      if (isDummyAddress) {
+        console.log('Skipping fetch for dummy address');
+        return { result: { items: [], total: 0 } };
+      }
+      
       const response = await fetch('https://mainnet.helius-rpc.com/?api-key=762bb5e2-ed26-4f9d-aabc-daaa750d5cd4', options);
-      return await response.json()
+      return await response.json();
     },
+    // Disable automatic refetching for dummy address
+    enabled: !isDummyAddress,
   });
 }
 

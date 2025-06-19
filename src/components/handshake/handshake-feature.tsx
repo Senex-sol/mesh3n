@@ -1,11 +1,11 @@
 import { View, StyleSheet } from "react-native";
-import { HandshakeButton } from "./handshake-ui";
+import { HandshakeStart } from "./handshake-ui";
 
 export function HandshakeFeature() {
   return (
     <>
       <View style={styles.buttonGroup}>
-        <HandshakeButton />
+        <HandshakeStart />
       </View>
     </>
   );

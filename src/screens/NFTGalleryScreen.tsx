@@ -6,6 +6,7 @@ import { useGetNFTs } from '../components/account/account-data-access';
 import { SignInFeature } from "../components/sign-in/sign-in-feature";
 import { HandshakeFeature } from "../components/handshake/handshake-feature";
 import { useAbly } from "../utils/AblyProvider";
+import { useSwap } from "../utils/SwapProvider";
 
 // Define types for NFT data structure
 interface NFTFile {
@@ -105,11 +106,12 @@ export default function NFTGalleryScreen() {
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const { ablyClient, getChannel, channels } = useAbly();
+  const { swapPartner, sendSelectedNFTs, isConnected } = useSwap();
   const LIMIT = 20; // Number of NFTs per page
 
   // Get NFT data
   const { data, isLoading, error } = useGetNFTs({
-    address: selectedAccount?.publicKey || new PublicKey('11111111111111111111111111111111'),
+    address: swapPartner?.walletAddress ? new PublicKey(swapPartner.walletAddress) : new PublicKey('11111111111111111111111111111111'),
     page,
     limit: LIMIT
   });
@@ -157,9 +159,10 @@ export default function NFTGalleryScreen() {
     
     // Add to appropriate category
     if (category === 'want') {
-      setDoWantNfts(prev => [...prev, nft]);
+      setDoWantNfts([...doWantNfts, nft]);
+      sendSelectedNFTs([...doWantNfts, nft]);
     } else {
-      setDontWantNfts(prev => [...prev, nft]);
+      setDontWantNfts([...dontWantNfts, nft]);
     }
   };
 
@@ -357,6 +360,43 @@ export default function NFTGalleryScreen() {
     );
   };
 
+  // Render partner's NFTs if available
+  const renderPartnerNFTs = () => {
+    if (!swapPartner || !swapPartner.selectedNFTs || swapPartner.selectedNFTs.length === 0) {
+      return (
+        <View style={styles.partnerEmptyContainer}>
+          <Text style={styles.partnerEmptyText}>Waiting for partner to select NFTs...</Text>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.partnerContainer}>
+        <Text style={styles.partnerTitle}>Partner's Selected NFTs</Text>
+        <Text style={styles.partnerWallet}>Wallet: {swapPartner.walletAddress ? swapPartner.walletAddress.substring(0, 8) + '...' : 'Unknown'}</Text>
+        <FlatList
+          data={swapPartner.selectedNFTs}
+          horizontal
+          renderItem={({ item }) => (
+            <View style={styles.partnerNftItem}>
+              <Image 
+                source={{ uri: item.content?.metadata?.image || 'https://via.placeholder.com/150' }}
+                style={styles.partnerNftImage}
+                resizeMode="cover"
+              />
+              <Text style={styles.partnerNftName} numberOfLines={1}>
+                {item.content?.metadata?.name || 'Unnamed NFT'}
+              </Text>
+            </View>
+          )}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.partnerListContainer}
+          ListEmptyComponent={<Text>No NFTs selected yet</Text>}
+        />
+      </View>
+    );
+  };
+
   return (
     <View style={styles.container}>
       {!selectedAccount ? (
@@ -364,13 +404,13 @@ export default function NFTGalleryScreen() {
           <Text style={styles.centerText}>Please connect a wallet to start.</Text>
           <SignInFeature />
         </View>
-      ) : Object.keys(channels).length === 0 ? (
+      ) : (!swapPartner || !swapPartner.walletAddress) ? (
         <View style={styles.centerContainer}>
-          <Text style={styles.centerText}>Start the handshake.</Text>
           <HandshakeFeature />
         </View>
       ) : (
         <>
+          {renderPartnerNFTs()}
           {renderTabBar()}
           <FlatList
             data={getCurrentNFTs()}
@@ -392,6 +432,59 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
+  },
+  partnerContainer: {
+    padding: 15,
+    backgroundColor: '#f0f8ff', // Light blue background
+    borderBottomWidth: 1,
+    borderBottomColor: '#ddd',
+  },
+  partnerTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 5,
+  },
+  partnerWallet: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 10,
+  },
+  partnerListContainer: {
+    paddingVertical: 10,
+  },
+  partnerNftItem: {
+    width: 120,
+    marginRight: 10,
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  partnerNftImage: {
+    width: 120,
+    height: 120,
+    backgroundColor: '#eee',
+  },
+  partnerNftName: {
+    padding: 5,
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  partnerEmptyContainer: {
+    padding: 15,
+    backgroundColor: '#f0f8ff',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#ddd',
+  },
+  partnerEmptyText: {
+    fontSize: 14,
+    color: '#666',
+    fontStyle: 'italic',
   },
   centerContainer: {
     flex: 1,

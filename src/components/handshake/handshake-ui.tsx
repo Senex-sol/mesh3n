@@ -1,12 +1,13 @@
 import { useState, useCallback } from "react";
 import { Button } from "react-native-paper";
 import { alertAndLog } from "../../utils/alertAndLog";
+import { Text, StyleSheet, View } from "react-native";
 import { useAbly } from "../../utils/AblyProvider";
 import NfcManager, {NfcTech} from 'react-native-nfc-manager';
 
-export function HandshakeButton() {
+export function HandshakeStart() {
   const [authorizationInProgress, setAuthorizationInProgress] = useState(false);
-  const { ablyClient, getChannel } = useAbly();
+  const { ablyClient, getChannel, channels } = useAbly();
 
   async function readNdef() {
     let channelName = "";
@@ -33,21 +34,9 @@ export function HandshakeButton() {
 
           } else {
             console.warn('Decoded string is too short to trim first 3 characters. Using original:', decodedString);
-            // Handle the case where the string is too short, if necessary
           }
-          // If you intend to use the trimmed version universally, reassign it:
-          // if (decodedString.length > 3) decodedString = decodedString.substring(3);
         } catch (e) {
           console.error('Error decoding payload with String.fromCharCode:', e, firstNdefRecord.payload);
-          // Fallback or alternative decoding if needed, e.g., TextDecoder for specific encodings
-          // For example, for UTF-8: 
-          // try {
-          //   const textDecoder = new TextDecoder('utf-8');
-          //   const decodedStringUtf8 = textDecoder.decode(Uint8Array.from(firstNdefRecord.payload));
-          //   console.warn('Decoded NDEF Record Payload (UTF-8):', decodedStringUtf8);
-          // } catch (utf8Error) {
-          //   console.error('Error decoding payload as UTF-8:', utf8Error);
-          // }
         }
       } else {
         console.warn('No NDEF message with a valid payload found in the first record.');
@@ -73,7 +62,6 @@ export function HandshakeButton() {
       if (channelName) {
         const channel = getChannel(channelName);
         console.log(`Connected to channel: ${channelName}`);
-        // Now you can use the channel for communication
       }
       
     } catch (err: any) {
@@ -85,14 +73,52 @@ export function HandshakeButton() {
       setAuthorizationInProgress(false);
     }
   }, [authorizationInProgress]);
+
   return (
-    <Button
-      mode="contained"
-      disabled={authorizationInProgress}
-      onPress={handleHandshakePress}
-      style={{ flex: 1 }}
-    >
-      Handshake
-    </Button>
+    <>
+      {Object.keys(channels).length > 0 ? (
+        <View style={styles.centerContainer}>
+          <Text style={styles.titleText}>Handshake Connecting</Text>
+          <Text style={styles.detailText}>Establishing a connection with other device.</Text>
+        </View>
+      ) : authorizationInProgress ? (
+        <View style={styles.centerContainer}>
+          <Text style={styles.titleText}>Handshake Active</Text>
+          <Text style={styles.detailText}>Hold the back of your phone against the back of the other phone.</Text>
+        </View>
+      ) : (
+        <>
+          <Button
+            mode="contained"
+            disabled={authorizationInProgress}
+            onPress={handleHandshakePress}
+            style={{ flex: 1 }}
+          >
+            Start Handshake
+          </Button>
+        </>
+      )}
+    </>
   );
 }
+
+const styles = StyleSheet.create({
+  centerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  titleText: {
+    fontSize: 18,
+    marginBottom: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    textAlign: 'center',
+  },
+  detailText: {
+    fontSize: 16,
+    marginBottom: 20,
+    color: '#333',
+    textAlign: 'center',
+  },
+});

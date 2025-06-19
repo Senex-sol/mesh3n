@@ -6,6 +6,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ConnectionProvider } from "./src/utils/ConnectionProvider";
 import { AblyProvider } from "./src/utils/AblyProvider";
+import { SwapProvider } from "./src/utils/SwapProvider";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   DarkTheme as NavigationDarkTheme,
@@ -50,7 +51,8 @@ export default function App() {
       <ClusterProvider>
         <ConnectionProvider config={{ commitment: "processed" }}>
           <AblyProvider>
-            <SafeAreaView
+            <SwapProvider>
+              <SafeAreaView
               style={[
                 styles.shell,
                 {
@@ -70,7 +72,8 @@ export default function App() {
               >
                 <AppNavigator />
               </PaperProvider>
-            </SafeAreaView>
+              </SafeAreaView>
+            </SwapProvider>
           </AblyProvider>
         </ConnectionProvider>
       </ClusterProvider>

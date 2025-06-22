@@ -509,30 +509,33 @@ export default function NFTGalleryScreen() {
               />
             </View>
             
-            {/* My offer slots */}
-            <View style={styles.swapSlotsSection}>
-              <View style={styles.swapSlotsRow}>
-                {[0, 1, 2].map((index) => (
-                  <View key={`my-slot-${index}`} style={styles.swapSlotWrapper}>
-                    {renderSwapSlot(index, true)}
-                  </View>
-                ))}
+            {/* Center container for slots and button */}
+            <View style={styles.centerSlotsContainer}>
+              {/* My offer slots */}
+              <View style={styles.swapSlotsSection}>
+                <View style={styles.swapSlotsRow}>
+                  {[0, 1, 2].map((index) => (
+                    <View key={`my-slot-${index}`} style={styles.swapSlotWrapper}>
+                      {renderSwapSlot(index, true)}
+                    </View>
+                  ))}
+                </View>
               </View>
-            </View>
-            
-            {/* Confirm button */}
-            <TouchableOpacity style={styles.confirmButton}>
-              <Text style={styles.confirmButtonText}>Propose Swap</Text>
-            </TouchableOpacity>
-            
-            {/* Partner's offer slots */}
-            <View style={styles.swapSlotsSection}>
-              <View style={styles.swapSlotsRow}>
-                {[0, 1, 2].map((index) => (
-                  <View key={`partner-slot-${index}`} style={styles.swapSlotWrapper}>
-                    {renderSwapSlot(index, false)}
-                  </View>
-                ))}
+              
+              {/* Confirm button */}
+              <TouchableOpacity style={styles.confirmButton}>
+                <Text style={styles.confirmButtonText}>Propose Swap</Text>
+              </TouchableOpacity>
+              
+              {/* Partner's offer slots */}
+              <View style={styles.swapSlotsSection}>
+                <View style={styles.swapSlotsRow}>
+                  {[0, 1, 2].map((index) => (
+                    <View key={`partner-slot-${index}`} style={styles.swapSlotWrapper}>
+                      {renderSwapSlot(index, false)}
+                    </View>
+                  ))}
+                </View>
               </View>
             </View>
             
@@ -636,6 +639,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
+    flexDirection: 'column',
+    justifyContent: 'space-between',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -676,7 +681,7 @@ const styles = StyleSheet.create({
     marginVertical: 10,
   },
   partnerSwapSection: {
-    marginTop: 'auto',
+    // No need for margin-top auto anymore
   },
   swapSectionTitle: {
     fontSize: 16,
@@ -712,7 +717,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   swapSlotsSection: {
-    marginVertical: 15,
+    marginVertical: 10,
   },
   swapSlotsSectionTitle: {
     fontSize: 14,
@@ -782,6 +787,12 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  centerSlotsContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingVertical: 10,
+    backgroundColor: '#f0f8ff', // Light blue background
   },
   partnerContainer: {
     paddingHorizontal: 5,

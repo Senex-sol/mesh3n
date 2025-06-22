@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, StyleSheet, Image, Dimensions, FlatList, ActivityIndicator, TouchableOpacity, PanResponder, PanResponderInstance, Animated } from 'react-native';
+import { View, Text, StyleSheet, Image, Dimensions, FlatList, ActivityIndicator, TouchableOpacity, PanResponder, PanResponderInstance, Animated, Modal } from 'react-native';
 import { PublicKey } from '@solana/web3.js';
 import { useAuthorization } from '../utils/useAuthorization';
 import { useGetNFTs } from '../components/account/account-data-access';
@@ -108,6 +108,9 @@ export default function NFTGalleryScreen() {
   const { ablyClient, getChannel, channels } = useAbly();
   const { swapPartner, sendSelectedNFTs, isConnected } = useSwap();
   const LIMIT = 20; // Number of NFTs per page
+
+  // State for swap modal
+  const [swapModalVisible, setSwapModalVisible] = useState(false);
 
   // Create a stable reference for NFT data fetching
   const walletAddress = swapPartner?.walletAddress;
@@ -373,45 +376,58 @@ export default function NFTGalleryScreen() {
     );
   };
 
-  // Render partner's NFTs if available
-  const renderPartnerNFTs = () => {
-    if (!swapPartner || !swapPartner.selectedNFTs || swapPartner.selectedNFTs.length === 0) {
-      return (
-        <View style={styles.partnerEmptyContainer}>
-          <Text style={styles.partnerEmptyText}>Waiting for partner to select NFTs...</Text>
+  // Render swap modal
+  const renderSwapModal = () => {
+    return (
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={swapModalVisible}
+        onRequestClose={() => setSwapModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Swap</Text>
+              <TouchableOpacity onPress={() => setSwapModalVisible(false)}>
+                <Text style={styles.closeButton}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            
+            {/* The rest of the modal will be implemented later */}
+            
+          </View>
         </View>
-      );
-    }
+      </Modal>
+    );
+  };
 
+  // Render partner status and swap button
+  const renderPartnerSection = () => {
+    const hasPartnerNFTs = swapPartner?.selectedNFTs && swapPartner.selectedNFTs.length > 0;
+    
     return (
       <View style={styles.partnerContainer}>
-        <Text style={styles.partnerTitle}>Partner's Selected NFTs</Text>
-        <Text style={styles.partnerWallet}>Wallet: {swapPartner.walletAddress ? swapPartner.walletAddress.substring(0, 8) + '...' : 'Unknown'}</Text>
-        <FlatList
-          data={swapPartner.selectedNFTs}
-          horizontal
-          renderItem={({ item }) => (
-            <View style={styles.partnerNftItem}>
-              <Image 
-                source={{ uri: item.content?.metadata?.image || 'https://via.placeholder.com/150' }}
-                style={styles.partnerNftImage}
-                resizeMode="cover"
-              />
-              <Text style={styles.partnerNftName} numberOfLines={1}>
-                {item.content?.metadata?.name || 'Unnamed NFT'}
-              </Text>
-            </View>
-          )}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.partnerListContainer}
-          ListEmptyComponent={<Text>No NFTs selected yet</Text>}
-        />
+        {!hasPartnerNFTs ? (
+          <View style={styles.partnerEmptyContainer}>
+            <Text style={styles.partnerEmptyText}>Waiting for partner to select NFTs...</Text>
+          </View>
+        ) : (
+          <TouchableOpacity 
+            style={[styles.startSwapButton, !hasPartnerNFTs && styles.disabledButton]}
+            onPress={() => setSwapModalVisible(true)}
+            disabled={!hasPartnerNFTs}
+          >
+            <Text style={styles.startSwapButtonText}>Start Swap ({swapPartner.selectedNFTs.length} NFTs)</Text>
+          </TouchableOpacity>
+        )}
       </View>
     );
   };
 
   return (
     <View style={styles.container}>
+      {renderSwapModal()}
       {!selectedAccount ? (
         <View style={styles.centerContainer}>
           <Text style={styles.centerText}>Please connect a wallet to start.</Text>
@@ -423,7 +439,7 @@ export default function NFTGalleryScreen() {
         </View>
       ) : (
         <>
-          {renderPartnerNFTs()}
+          {renderPartnerSection()}
           {renderTabBar()}
           <FlatList
             data={getCurrentNFTs()}
@@ -446,8 +462,61 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff',
   },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContent: {
+    width: '90%',
+    maxHeight: '80%',
+    backgroundColor: 'white',
+    borderRadius: 10,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+    paddingBottom: 10,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  closeButton: {
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  startSwapButton: {
+    backgroundColor: '#512da8',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    marginTop: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  disabledButton: {
+    backgroundColor: '#9e9e9e',
+    opacity: 0.7,
+  },
+  startSwapButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
   partnerContainer: {
-    padding: 15,
+    paddingHorizontal: 5,
     backgroundColor: '#f0f8ff', // Light blue background
     borderBottomWidth: 1,
     borderBottomColor: '#ddd',

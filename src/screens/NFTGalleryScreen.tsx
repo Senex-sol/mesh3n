@@ -111,6 +111,8 @@ export default function NFTGalleryScreen() {
 
   // State for swap modal
   const [swapModalVisible, setSwapModalVisible] = useState(false);
+  const [mySelectedSwapNFTs, setMySelectedSwapNFTs] = useState<(NFT | null)[]>([null, null, null]);
+  const [partnerSelectedSwapNFTs, setPartnerSelectedSwapNFTs] = useState<(NFT | null)[]>([null, null, null]);
 
   // Create a stable reference for NFT data fetching
   const walletAddress = swapPartner?.walletAddress;
@@ -376,6 +378,107 @@ export default function NFTGalleryScreen() {
     );
   };
 
+  // Handle selecting an NFT for swap
+  const handleSelectNFT = (nft: NFT, isMyNFT: boolean) => {
+    if (isMyNFT) {
+      // Find the first empty slot in my row
+      const emptySlotIndex = mySelectedSwapNFTs.findIndex(item => item === null);
+      if (emptySlotIndex !== -1) {
+        const newSelectedNFTs = [...mySelectedSwapNFTs];
+        newSelectedNFTs[emptySlotIndex] = nft;
+        setMySelectedSwapNFTs(newSelectedNFTs);
+      }
+    } else {
+      // Find the first empty slot in partner's row
+      const emptySlotIndex = partnerSelectedSwapNFTs.findIndex(item => item === null);
+      if (emptySlotIndex !== -1) {
+        const newSelectedNFTs = [...partnerSelectedSwapNFTs];
+        newSelectedNFTs[emptySlotIndex] = nft;
+        setPartnerSelectedSwapNFTs(newSelectedNFTs);
+      }
+    }
+  };
+
+  // Handle removing an NFT from a swap slot
+  const handleRemoveNFT = (slotIndex: number, isMyNFT: boolean) => {
+    if (isMyNFT) {
+      const newSelectedNFTs = [...mySelectedSwapNFTs];
+      newSelectedNFTs[slotIndex] = null;
+      setMySelectedSwapNFTs(newSelectedNFTs);
+    } else {
+      const newSelectedNFTs = [...partnerSelectedSwapNFTs];
+      newSelectedNFTs[slotIndex] = null;
+      setPartnerSelectedSwapNFTs(newSelectedNFTs);
+    }
+  };
+
+  // Render NFT item in the horizontal list
+  const renderSwapListItem = ({ item, isMyNFT }: { item: NFT, isMyNFT: boolean }) => {
+    // Check if this NFT is already in the selected slots
+    const isSelected = isMyNFT
+      ? mySelectedSwapNFTs.some(nft => nft && nft.id === item.id)
+      : partnerSelectedSwapNFTs.some(nft => nft && nft.id === item.id);
+    
+    // Get image URI
+    const imageUri = item.content?.links?.image || 
+                    item.content?.files?.[0]?.uri || 
+                    item.content?.metadata?.image || 
+                    'https://via.placeholder.com/150';
+    
+    return (
+      <TouchableOpacity 
+        style={[styles.swapNftItem, isSelected && styles.swapNftItemSelected]}
+        onPress={() => !isSelected && handleSelectNFT(item, isMyNFT)}
+        disabled={isSelected}
+      >
+        <Image 
+          source={{ uri: imageUri }}
+          style={styles.swapNftImage}
+          resizeMode="cover"
+        />
+        <Text style={styles.swapNftName} numberOfLines={1}>
+          {item.content?.metadata?.name || 'Unnamed NFT'}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
+
+  // Render a slot for selected NFTs
+  const renderSwapSlot = (index: number, isMySlot: boolean) => {
+    const selectedNFT = isMySlot ? mySelectedSwapNFTs[index] : partnerSelectedSwapNFTs[index];
+    
+    if (selectedNFT) {
+      // Get image URI
+      const imageUri = selectedNFT.content?.links?.image || 
+                      selectedNFT.content?.files?.[0]?.uri || 
+                      selectedNFT.content?.metadata?.image || 
+                      'https://via.placeholder.com/150';
+      
+      return (
+        <View style={styles.swapSlotFilled}>
+          <Image 
+            source={{ uri: imageUri }}
+            style={styles.swapSlotImage}
+            resizeMode="cover"
+          />
+          <TouchableOpacity 
+            style={styles.removeButton}
+            onPress={() => handleRemoveNFT(index, isMySlot)}
+          >
+            <Text style={styles.removeButtonText}>✕</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    
+    // Empty slot
+    return (
+      <View style={styles.swapSlotEmpty}>
+        <Text style={styles.swapSlotPlus}>+</Text>
+      </View>
+    );
+  };
+
   // Render swap modal
   const renderSwapModal = () => {
     return (
@@ -394,8 +497,62 @@ export default function NFTGalleryScreen() {
               </TouchableOpacity>
             </View>
             
-            {/* The rest of the modal will be implemented later */}
+            {/* My NFTs horizontal list */}
+            <View style={styles.swapSection}>
+              <FlatList
+                data={doWantNfts}
+                horizontal
+                renderItem={({ item }) => renderSwapListItem({ item, isMyNFT: true })}
+                keyExtractor={(item) => `my-${item.id}`}
+                contentContainerStyle={styles.swapListContainer}
+                showsHorizontalScrollIndicator={false}
+              />
+            </View>
             
+            {/* My offer slots */}
+            <View style={styles.swapSlotsSection}>
+              <View style={styles.swapSlotsRow}>
+                {[0, 1, 2].map((index) => (
+                  <View key={`my-slot-${index}`} style={styles.swapSlotWrapper}>
+                    {renderSwapSlot(index, true)}
+                  </View>
+                ))}
+              </View>
+            </View>
+            
+            {/* Confirm button */}
+            <TouchableOpacity style={styles.confirmButton}>
+              <Text style={styles.confirmButtonText}>Propose Swap</Text>
+            </TouchableOpacity>
+            
+            {/* Partner's offer slots */}
+            <View style={styles.swapSlotsSection}>
+              <View style={styles.swapSlotsRow}>
+                {[0, 1, 2].map((index) => (
+                  <View key={`partner-slot-${index}`} style={styles.swapSlotWrapper}>
+                    {renderSwapSlot(index, false)}
+                  </View>
+                ))}
+              </View>
+            </View>
+            
+            {/* Partner's NFTs horizontal list */}
+            <View style={[styles.swapSection, styles.partnerSwapSection]}>
+              {swapPartner?.selectedNFTs && swapPartner.selectedNFTs.length > 0 ? (
+                <FlatList
+                  data={swapPartner.selectedNFTs}
+                  horizontal
+                  renderItem={({ item }) => renderSwapListItem({ item, isMyNFT: false })}
+                  keyExtractor={(item) => `partner-${item.id}`}
+                  contentContainerStyle={styles.swapListContainer}
+                  showsHorizontalScrollIndicator={false}
+                />
+              ) : (
+                <Text style={styles.emptyListText}>No NFTs available</Text>
+              )}
+            </View>
+
+
           </View>
         </View>
       </Modal>
@@ -469,11 +626,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   modalContent: {
-    width: '90%',
-    maxHeight: '80%',
+    width: '95%',
+    height: '90%',
     backgroundColor: 'white',
     borderRadius: 10,
-    padding: 20,
+    padding: 15,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
@@ -511,6 +668,117 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   startSwapButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  swapSection: {
+    marginVertical: 10,
+  },
+  partnerSwapSection: {
+    marginTop: 'auto',
+  },
+  swapSectionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  swapListContainer: {
+    paddingVertical: 5,
+  },
+  swapNftItem: {
+    width: 100,
+    marginRight: 10,
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  swapNftItemSelected: {
+    opacity: 0.5,
+  },
+  swapNftImage: {
+    width: 100,
+    height: 100,
+    backgroundColor: '#eee',
+  },
+  swapNftName: {
+    padding: 4,
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
+  swapSlotsSection: {
+    marginVertical: 15,
+  },
+  swapSlotsSectionTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  swapSlotsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  swapSlotWrapper: {
+    width: '30%',
+    aspectRatio: 1,
+  },
+  swapSlotEmpty: {
+    flex: 1,
+    borderWidth: 2,
+    borderColor: '#ccc',
+    borderStyle: 'dashed',
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  swapSlotFilled: {
+    flex: 1,
+    borderRadius: 8,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  swapSlotImage: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#eee',
+  },
+  swapSlotPlus: {
+    fontSize: 24,
+    color: '#aaa',
+  },
+  removeButton: {
+    position: 'absolute',
+    top: 5,
+    right: 5,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  removeButtonText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  emptyListText: {
+    padding: 10,
+    fontStyle: 'italic',
+    color: '#999',
+  },
+  confirmButton: {
+    backgroundColor: '#4CAF50',
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  confirmButtonText: {
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',

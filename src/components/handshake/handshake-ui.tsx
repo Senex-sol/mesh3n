@@ -1,11 +1,44 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { Button } from "react-native-paper";
 import { alertAndLog } from "../../utils/alertAndLog";
-import { Text, StyleSheet, View } from "react-native";
+import { Text, StyleSheet, View, Vibration } from "react-native";
 import { useAbly } from "../../utils/AblyProvider";
 import NfcManager, {NfcTech} from 'react-native-nfc-manager';
 import { HCESession, NFCTagType4NDEFContentType, NFCTagType4 } from 'react-native-hce';
 import { v4 as uuidv4 } from 'uuid';
+import Sound from 'react-native-sound';
+
+// Initialize sound
+Sound.setCategory('Playback');
+
+// Load the success sound - use system sound instead of a custom file
+const successSound = new Sound('tink.mp3', Sound.MAIN_BUNDLE, (error: any) => {
+  if (error) {
+    console.log('Failed to load the sound', error);
+    return;
+  }
+  // Lower the volume to avoid it being too loud
+  successSound.setVolume(0.5);
+});
+
+// Function to play sound and vibrate
+const playSuccessFeedback = () => {
+  try {
+    // Play sound
+    successSound.play((success: boolean) => {
+      if (!success) {
+        console.log('Sound playback failed');
+      }
+    });
+    
+    // Vibrate - pattern is in milliseconds [wait, vibrate, wait, vibrate, ...]
+    Vibration.vibrate([0, 100]);
+  } catch (error) {
+    console.error('Error playing feedback:', error);
+    // Fallback to just vibration if sound fails
+    Vibration.vibrate([0, 100]);
+  }
+};
 
 export function HandshakeStart() {
   const [authorizationInProgress, setAuthorizationInProgress] = useState(false);
@@ -103,6 +136,10 @@ export function HandshakeStart() {
 
     session.on(HCESession.Events.HCE_STATE_READ, () => {
       console.log("The tag has been read!");
+      
+      // Play sound and vibrate to provide feedback
+      playSuccessFeedback();
+      
       const channel = getChannel(channelName);
       console.log(`Connected to channel: ${channelName}`);
       stopHCESession();

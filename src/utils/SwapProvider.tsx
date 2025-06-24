@@ -97,6 +97,7 @@ export interface NFT {
 export interface SwapPartner {
   walletAddress: string;
   selectedNFTs: NFT[];
+  swapAccepted: boolean;
 }
 
 export interface TradeSlots {
@@ -115,6 +116,7 @@ export interface SwapContextState {
   tradeSlots: TradeSlots;
   setTradeSlots: React.Dispatch<React.SetStateAction<TradeSlots>>;
   sendTradeSlots: (slots: TradeSlots) => void;
+  sendSwapAccepted: (swapAccepted: boolean) => void;
   isConnected: boolean;
 }
 
@@ -164,7 +166,8 @@ export const SwapProvider: FC<SwapProviderProps> = ({ children }) => {
         // Otherwise create a new partner object
         setSwapPartner({
           walletAddress: message.data,
-          selectedNFTs: []
+          selectedNFTs: [],
+          swapAccepted: false
         });
       }
 
@@ -193,7 +196,8 @@ export const SwapProvider: FC<SwapProviderProps> = ({ children }) => {
         // Otherwise create a new partner object
         setSwapPartner({
           walletAddress: message.data,
-          selectedNFTs: []
+          selectedNFTs: [],
+          swapAccepted: false
         });
       }
     });
@@ -206,7 +210,21 @@ export const SwapProvider: FC<SwapProviderProps> = ({ children }) => {
       
       setSwapPartner({
         walletAddress: message.data.walletAddress,
-        selectedNFTs: message.data.nfts
+        selectedNFTs: message.data.nfts,
+        swapAccepted: swapPartner?.swapAccepted || false
+      });
+    });
+
+    channel.subscribe('swap-accepted', (message: any) => {
+      if (selectedAccount?.publicKey.toString() === message.data.walletAddress) {
+        return;
+      }
+      console.log('Received swap accepted:', message.data);
+      
+      setSwapPartner({
+        walletAddress: message.data.walletAddress,
+        selectedNFTs: swapPartner?.selectedNFTs || [],
+        swapAccepted: message.data.swapAccepted
       });
     });
 
@@ -268,6 +286,22 @@ export const SwapProvider: FC<SwapProviderProps> = ({ children }) => {
     console.log('Sent trade slots to partner:', slots);
   };
 
+  const sendSwapAccepted = (swapAccepted: boolean) => {
+    const channelKeys = Object.keys(channels);
+    if (channelKeys.length === 0 || !ablyClient || !selectedAccount) {
+      console.warn('Cannot send swap accepted: No active channel or wallet');
+      return;
+    }
+
+    const activeChannelName = channelKeys[0]; // Use the first channel
+    const channel = channels[activeChannelName];
+    
+    // Send swap accepted
+    channel.publish('swap-accepted', {walletAddress: selectedAccount?.publicKey.toString(), swapAccepted});
+    
+    console.log('Sent swap accepted to partner');
+  };
+
   return (
     <SwapContext.Provider
       value={{
@@ -277,6 +311,7 @@ export const SwapProvider: FC<SwapProviderProps> = ({ children }) => {
         tradeSlots,
         setTradeSlots,
         sendTradeSlots,
+        sendSwapAccepted,
         isConnected
       }}
     >

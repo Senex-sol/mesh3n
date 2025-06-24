@@ -106,14 +106,23 @@ export default function NFTGalleryScreen() {
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const { ablyClient, getChannel, channels } = useAbly();
-  const { swapPartner, sendSelectedNFTs, tradeSlots, setTradeSlots, sendTradeSlots, isConnected } = useSwap();
+  const { swapPartner, sendSelectedNFTs, tradeSlots, setTradeSlots, sendTradeSlots, sendSwapAccepted, isConnected } = useSwap();
   const LIMIT = 20; // Number of NFTs per page
 
   // State for swap modal
   const [swapModalVisible, setSwapModalVisible] = useState(false);
+  const [swapAccepted, setSwapAccepted] = useState(false);
 
   // Create a stable reference for NFT data fetching
   const walletAddress = swapPartner?.walletAddress;
+  
+  // Reset swap accepted state whenever trade slots change
+  useEffect(() => {
+    if (swapAccepted) {
+      setSwapAccepted(false);
+      sendSwapAccepted(false);
+    }
+  }, [tradeSlots]);
   
   // Always call useGetNFTs with consistent parameters
   // Our modified hook will skip the actual fetch if using the dummy address
@@ -437,6 +446,23 @@ export default function NFTGalleryScreen() {
       });
     }
   };
+  
+  // Check if both sides have at least one NFT in the trade slots
+  const canAcceptSwap = () => {
+    const hasMyNFT = tradeSlots?.myNFTs.some(nft => nft !== null);
+    const hasPartnerNFT = tradeSlots?.partnerNFTs.some(nft => nft !== null);
+    return hasMyNFT && hasPartnerNFT;
+  };
+  
+  // Handle accepting the swap
+  const handleAcceptSwap = () => {
+    if (!canAcceptSwap()) return;
+    
+    setSwapAccepted(true);
+    sendSwapAccepted(true);
+    // Here you would add any additional logic needed when a swap is accepted
+    // such as notifying the partner through the Ably channel
+  };
 
   // Render NFT item in the horizontal list
   const renderSwapListItem = ({ item, isMyNFT }: { item: NFT, isMyNFT: boolean }) => {
@@ -549,8 +575,21 @@ export default function NFTGalleryScreen() {
               </View>
               
               {/* Confirm button */}
-              <TouchableOpacity style={styles.confirmButton}>
-                <Text style={styles.confirmButtonText}>Propose Swap</Text>
+              <TouchableOpacity 
+                style={[styles.confirmButton, (swapAccepted || !canAcceptSwap()) && styles.confirmButtonDisabled]}
+                onPress={handleAcceptSwap}
+                disabled={swapAccepted || !canAcceptSwap()}
+              >
+                {swapAccepted ? (
+                  <View style={styles.checkmarkContainer}>
+                    <Text style={styles.greenCheckmark}>✓</Text>
+                    <Text style={swapPartner?.swapAccepted ? styles.greenCheckmark : styles.greyCheckmark}>✓</Text>
+                  </View>
+                ) : canAcceptSwap() ? (
+                  <Text style={styles.confirmButtonText}>Accept Swap</Text>
+                ) : (
+                  <Text style={styles.confirmButtonText}>Choose NFTs to Swap</Text>
+                )}
               </TouchableOpacity>
               
               {/* Partner's offer slots */}
@@ -685,6 +724,49 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
   },
+  confirmButton: {
+    backgroundColor: '#512da8',
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    marginVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '80%',
+    alignSelf: 'center',
+  },
+  confirmButtonDisabled: {
+    backgroundColor: '#dedede',
+    opacity: 0.8,
+  },
+  confirmButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+    paddingVertical: 12,
+  },
+  checkmarkContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 5,
+  },
+  greenCheckmark: {
+    color: '#4CAF50',
+    fontSize: 30,
+    fontWeight: 'bold',
+    marginRight: 8,
+  },
+  greyCheckmark: {
+    color: '#9e9e9e',
+    fontSize: 30,
+    fontWeight: 'bold',
+  },
+  swapSection: {
+    marginVertical: 10,
+  },
+  partnerSwapSection: {
+    // No need for margin-top auto anymore
+  },
   startSwapButton: {
     backgroundColor: '#512da8',
     paddingVertical: 12,
@@ -702,12 +784,6 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
-  },
-  swapSection: {
-    marginVertical: 10,
-  },
-  partnerSwapSection: {
-    // No need for margin-top auto anymore
   },
   swapSectionTitle: {
     fontSize: 16,
@@ -803,17 +879,7 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     color: '#999',
   },
-  confirmButton: {
-    backgroundColor: '#4CAF50',
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  confirmButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
+  // Note: confirmButton and confirmButtonText are already defined above
   centerSlotsContainer: {
     flex: 1,
     justifyContent: 'center',

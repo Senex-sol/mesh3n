@@ -99,6 +99,11 @@ export interface SwapPartner {
   selectedNFTs: NFT[];
 }
 
+export interface TradeSlots {
+  myNFTs: (NFT|null)[];
+  partnerNFTs: (NFT|null)[];
+}
+
 export interface SwapProviderProps {
   children: ReactNode;
 }
@@ -107,6 +112,9 @@ export interface SwapContextState {
   swapPartner: SwapPartner | null;
   setSwapPartner: (partner: SwapPartner | null) => void;
   sendSelectedNFTs: (nfts: NFT[]) => void;
+  tradeSlots: TradeSlots;
+  setTradeSlots: React.Dispatch<React.SetStateAction<TradeSlots>>;
+  sendTradeSlots: (slots: TradeSlots) => void;
   isConnected: boolean;
 }
 
@@ -116,6 +124,10 @@ export const SwapContext = createContext<SwapContextState>(
 
 export const SwapProvider: FC<SwapProviderProps> = ({ children }) => {
   const [swapPartner, setSwapPartner] = useState<SwapPartner | null>(null);
+  const [tradeSlots, setTradeSlots] = useState<TradeSlots>({
+    myNFTs: [null, null, null],
+    partnerNFTs: [null, null, null],
+  });
   const { ablyClient, getChannel, channels } = useAbly();
   const { selectedAccount } = useAuthorization();
   const [isConnected, setIsConnected] = useState(false);
@@ -198,6 +210,18 @@ export const SwapProvider: FC<SwapProviderProps> = ({ children }) => {
       });
     });
 
+    channel.subscribe('trade-slots', (message: any) => {
+      if (selectedAccount?.publicKey.toString() === message.data.walletAddress) {
+        return;
+      }
+      console.log('Received trade slots:', message.data);
+      
+      setTradeSlots({
+        myNFTs: message.data.slots.partnerNFTs,
+        partnerNFTs: message.data.slots.myNFTs
+      });
+    });
+
     if (selectedAccount && !swapPartner) {
       console.log('Publishing partner wallet:', selectedAccount.publicKey.toString());
       channel.publish('partner-wallet-new', selectedAccount.publicKey.toString());
@@ -228,12 +252,31 @@ export const SwapProvider: FC<SwapProviderProps> = ({ children }) => {
     console.log('Sent selected NFTs to partner:', nfts.length);
   };
 
+  const sendTradeSlots = (slots: TradeSlots) => {
+    const channelKeys = Object.keys(channels);
+    if (channelKeys.length === 0 || !ablyClient || !selectedAccount) {
+      console.warn('Cannot send trade slots: No active channel or wallet');
+      return;
+    }
+
+    const activeChannelName = channelKeys[0]; // Use the first channel
+    const channel = channels[activeChannelName];
+    
+    // Send trade slots
+    channel.publish('trade-slots', {slots, walletAddress: selectedAccount?.publicKey.toString()});
+    
+    console.log('Sent trade slots to partner:', slots);
+  };
+
   return (
     <SwapContext.Provider
       value={{
         swapPartner,
         setSwapPartner,
         sendSelectedNFTs,
+        tradeSlots,
+        setTradeSlots,
+        sendTradeSlots,
         isConnected
       }}
     >

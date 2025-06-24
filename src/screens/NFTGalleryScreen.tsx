@@ -106,13 +106,11 @@ export default function NFTGalleryScreen() {
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const { ablyClient, getChannel, channels } = useAbly();
-  const { swapPartner, sendSelectedNFTs, isConnected } = useSwap();
+  const { swapPartner, sendSelectedNFTs, tradeSlots, setTradeSlots, sendTradeSlots, isConnected } = useSwap();
   const LIMIT = 20; // Number of NFTs per page
 
   // State for swap modal
   const [swapModalVisible, setSwapModalVisible] = useState(false);
-  const [mySelectedSwapNFTs, setMySelectedSwapNFTs] = useState<(NFT | null)[]>([null, null, null]);
-  const [partnerSelectedSwapNFTs, setPartnerSelectedSwapNFTs] = useState<(NFT | null)[]>([null, null, null]);
 
   // Create a stable reference for NFT data fetching
   const walletAddress = swapPartner?.walletAddress;
@@ -382,19 +380,33 @@ export default function NFTGalleryScreen() {
   const handleSelectNFT = (nft: NFT, isMyNFT: boolean) => {
     if (isMyNFT) {
       // Find the first empty slot in my row
-      const emptySlotIndex = mySelectedSwapNFTs.findIndex(item => item === null);
+      const emptySlotIndex = tradeSlots?.myNFTs.findIndex(item => item === null);
       if (emptySlotIndex !== -1) {
-        const newSelectedNFTs = [...mySelectedSwapNFTs];
+        const newSelectedNFTs = [...tradeSlots?.myNFTs];
         newSelectedNFTs[emptySlotIndex] = nft;
-        setMySelectedSwapNFTs(newSelectedNFTs);
+        setTradeSlots({
+          ...tradeSlots,
+          myNFTs: newSelectedNFTs
+        });
+        sendTradeSlots({
+          ...tradeSlots,
+          myNFTs: newSelectedNFTs
+        });
       }
     } else {
       // Find the first empty slot in partner's row
-      const emptySlotIndex = partnerSelectedSwapNFTs.findIndex(item => item === null);
+      const emptySlotIndex = tradeSlots?.partnerNFTs.findIndex(item => item === null);
       if (emptySlotIndex !== -1) {
-        const newSelectedNFTs = [...partnerSelectedSwapNFTs];
+        const newSelectedNFTs = [...tradeSlots?.partnerNFTs];
         newSelectedNFTs[emptySlotIndex] = nft;
-        setPartnerSelectedSwapNFTs(newSelectedNFTs);
+        setTradeSlots({
+          ...tradeSlots,
+          partnerNFTs: newSelectedNFTs
+        });
+        sendTradeSlots({
+          ...tradeSlots,
+          partnerNFTs: newSelectedNFTs
+        });
       }
     }
   };
@@ -402,13 +414,27 @@ export default function NFTGalleryScreen() {
   // Handle removing an NFT from a swap slot
   const handleRemoveNFT = (slotIndex: number, isMyNFT: boolean) => {
     if (isMyNFT) {
-      const newSelectedNFTs = [...mySelectedSwapNFTs];
+      const newSelectedNFTs = [...tradeSlots?.myNFTs];
       newSelectedNFTs[slotIndex] = null;
-      setMySelectedSwapNFTs(newSelectedNFTs);
+      setTradeSlots({
+        ...tradeSlots,
+        myNFTs: newSelectedNFTs
+      });
+      sendTradeSlots({
+        ...tradeSlots,
+        myNFTs: newSelectedNFTs
+      });
     } else {
-      const newSelectedNFTs = [...partnerSelectedSwapNFTs];
+      const newSelectedNFTs = [...tradeSlots?.partnerNFTs];
       newSelectedNFTs[slotIndex] = null;
-      setPartnerSelectedSwapNFTs(newSelectedNFTs);
+      setTradeSlots({
+        ...tradeSlots,
+        partnerNFTs: newSelectedNFTs
+      });
+      sendTradeSlots({
+        ...tradeSlots,
+        partnerNFTs: newSelectedNFTs
+      });
     }
   };
 
@@ -416,8 +442,8 @@ export default function NFTGalleryScreen() {
   const renderSwapListItem = ({ item, isMyNFT }: { item: NFT, isMyNFT: boolean }) => {
     // Check if this NFT is already in the selected slots
     const isSelected = isMyNFT
-      ? mySelectedSwapNFTs.some(nft => nft && nft.id === item.id)
-      : partnerSelectedSwapNFTs.some(nft => nft && nft.id === item.id);
+      ? tradeSlots?.myNFTs.some(nft => nft && nft.id === item.id)
+      : tradeSlots?.partnerNFTs.some(nft => nft && nft.id === item.id);
     
     // Get image URI
     const imageUri = item.content?.links?.image || 
@@ -445,7 +471,7 @@ export default function NFTGalleryScreen() {
 
   // Render a slot for selected NFTs
   const renderSwapSlot = (index: number, isMySlot: boolean) => {
-    const selectedNFT = isMySlot ? mySelectedSwapNFTs[index] : partnerSelectedSwapNFTs[index];
+    const selectedNFT = isMySlot ? tradeSlots?.myNFTs[index] : tradeSlots?.partnerNFTs[index];
     
     if (selectedNFT) {
       // Get image URI

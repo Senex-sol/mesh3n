@@ -77,7 +77,7 @@ export default function BlankScreen() {
   const startSession = async () => {
     const tag = new NFCTagType4({
       type: NFCTagType4NDEFContentType.Text,
-      content: "Hello world",
+      content: "test123",
       writable: false
     });
   
@@ -85,6 +85,9 @@ export default function BlankScreen() {
     session.setApplication(tag);
     await session.setEnabled(true);
     console.warn('Session started');
+    const removeListener = session.on(HCESession.Events.HCE_STATE_READ, () => {
+      console.log("The tag has been read! Thank You.");
+    });
     setHceSession(session);
   }
 

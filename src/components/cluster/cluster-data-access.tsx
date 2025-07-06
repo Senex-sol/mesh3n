@@ -61,9 +61,9 @@ const Context = createContext<ClusterProviderContext>(
 );
 
 export function ClusterProvider({ children }: { children: ReactNode }) {
-  const [selectedCluster, setSelectedCluster] = useState<Cluster>(
-    defaultClusters[0]
-  );
+  // Explicitly find and use the devnet cluster as default
+  const devnetCluster = defaultClusters.find(c => c.network === ClusterNetwork.Devnet) || defaultClusters[0];
+  const [selectedCluster, setSelectedCluster] = useState<Cluster>(devnetCluster);
   const clusters = [...defaultClusters];
 
   const value: ClusterProviderContext = useMemo(

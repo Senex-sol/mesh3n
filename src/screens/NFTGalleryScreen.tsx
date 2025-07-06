@@ -106,12 +106,11 @@ export default function NFTGalleryScreen() {
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const { ablyClient, getChannel, channels } = useAbly();
-  const { swapPartner, sendSelectedNFTs, tradeSlots, setTradeSlots, sendTradeSlots, sendSwapAccepted, isConnected } = useSwap();
+  const { swapPartner, sendSelectedNFTs, tradeSlots, setTradeSlots, sendTradeSlots, swapAccepted, acceptSwap, unacceptSwap, isConnected } = useSwap();
   const LIMIT = 20; // Number of NFTs per page
 
   // State for swap modal
   const [swapModalVisible, setSwapModalVisible] = useState(false);
-  const [swapAccepted, setSwapAccepted] = useState(false);
 
   // Create a stable reference for NFT data fetching
   const walletAddress = swapPartner?.walletAddress;
@@ -119,8 +118,7 @@ export default function NFTGalleryScreen() {
   // Reset swap accepted state whenever trade slots change
   useEffect(() => {
     if (swapAccepted) {
-      setSwapAccepted(false);
-      sendSwapAccepted(false);
+      unacceptSwap();
     }
   }, [tradeSlots]);
   
@@ -458,10 +456,7 @@ export default function NFTGalleryScreen() {
   const handleAcceptSwap = () => {
     if (!canAcceptSwap()) return;
     
-    setSwapAccepted(true);
-    sendSwapAccepted(true);
-    // Here you would add any additional logic needed when a swap is accepted
-    // such as notifying the partner through the Ably channel
+    acceptSwap();
   };
 
   // Render NFT item in the horizontal list

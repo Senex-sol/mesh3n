@@ -26,6 +26,8 @@ export function useGetNFTs({ address, page = 1, limit = 50 }: { address: PublicK
     body: '{"jsonrpc":"2.0","id":"1","method":"getAssetsByOwner","params":{"ownerAddress":"' + address + '","page":' + page + ',"limit":' + limit + ',"sortBy":{"sortBy":"created","sortDirection":"asc"},"options":{"showUnverifiedCollections":false,"showCollectionMetadata":false,"showGrandTotal":false,"showFungible":false,"showNativeBalance":false,"showInscription":false,"showZeroBalance":false}}}'
   };
 
+  const { connection } = useConnection();
+
   return useQuery({
     queryKey: ["get-nfts", { address, page, limit }],
     queryFn: async () => {
@@ -35,7 +37,7 @@ export function useGetNFTs({ address, page = 1, limit = 50 }: { address: PublicK
         return { result: { items: [], total: 0 } };
       }
       
-      const response = await fetch('https://mainnet.helius-rpc.com/?api-key=762bb5e2-ed26-4f9d-aabc-daaa750d5cd4', options);
+      const response = await fetch(connection.rpcEndpoint, options);
       return await response.json();
     },
     // Disable automatic refetching for dummy address

@@ -173,7 +173,7 @@ export const SwapProvider: FC<SwapProviderProps> = ({ children }) => {
   const hasSubscribedRef = useRef(false);
   
   // Import the useSwapEscrow hook
-  const { initializeEscrow, loading: swapEscrowLoading, error: swapEscrowError } = useSwapEscrow();
+  const { initializeEscrow, checkEscrowAccount, loading: swapEscrowLoading, error: swapEscrowError } = useSwapEscrow();
 
   // Listen for swap partner data on the Ably channel
   useEffect(() => {
@@ -212,6 +212,41 @@ export const SwapProvider: FC<SwapProviderProps> = ({ children }) => {
             selectedNFTs: [],
             swapAccepted: false
           });
+
+          // Check if escrow account exists
+          if (selectedAccountRef.current && message.data) {
+            checkEscrowAccount(
+              selectedAccountRef.current.publicKey,
+              new PublicKey(message.data)
+            ).then(escrowData => {
+              if (escrowData) {
+                // Format the NFT mints for display
+                const formatNftMints = (mints: PublicKey[]) => {
+                  return mints.map(mint => mint.toString().substring(0, 8) + '...').join(', ');
+                };
+                
+                // Calculate expiration time
+                const createdAtMs = Number(escrowData.createdAt) * 1000;
+                const timeoutMs = Number(escrowData.timeoutInSeconds) * 1000;
+                const expirationDate = new Date(createdAtMs + timeoutMs);
+                
+                alertAndLog(
+                  'Existing Escrow Found', 
+                  `Escrow account exists between you and this partner:\n` +
+                  `- Initializer: ${escrowData.initializer.toString().substring(0, 8)}...\n` +
+                  `- Taker: ${escrowData.taker.toString().substring(0, 8)}...\n` +
+                  `- Initializer NFTs: ${escrowData.initializerNftCount} (${formatNftMints(escrowData.initializerNftMints)})\n` +
+                  `- Taker NFTs: ${escrowData.takerNftCount} (${formatNftMints(escrowData.takerNftMints)})\n` +
+                  `- Initializer deposited: ${escrowData.initializerDeposited}\n` +
+                  `- Taker deposited: ${escrowData.takerDeposited}\n` +
+                  `- Created at: ${new Date(createdAtMs).toLocaleString()}\n` +
+                  `- Expires at: ${expirationDate.toLocaleString()}`
+                );
+              }
+            }).catch(error => {
+              console.error('Error checking escrow account:', error);
+            });
+          }
         }
 
         if (channelKeys.length === 0 || !ablyClient || !selectedAccount) {
@@ -242,6 +277,41 @@ export const SwapProvider: FC<SwapProviderProps> = ({ children }) => {
             selectedNFTs: [],
             swapAccepted: false
           });
+
+          // Check if escrow account exists
+          if (selectedAccountRef.current && message.data) {
+            checkEscrowAccount(
+              selectedAccountRef.current.publicKey,
+              new PublicKey(message.data)
+            ).then(escrowData => {
+              if (escrowData) {
+                // Format the NFT mints for display
+                const formatNftMints = (mints: PublicKey[]) => {
+                  return mints.map(mint => mint.toString().substring(0, 8) + '...').join(', ');
+                };
+                
+                // Calculate expiration time
+                const createdAtMs = Number(escrowData.createdAt) * 1000;
+                const timeoutMs = Number(escrowData.timeoutInSeconds) * 1000;
+                const expirationDate = new Date(createdAtMs + timeoutMs);
+                
+                alertAndLog(
+                  'Existing Escrow Found', 
+                  `Escrow account exists between you and this partner:\n` +
+                  `- Initializer: ${escrowData.initializer.toString().substring(0, 8)}...\n` +
+                  `- Taker: ${escrowData.taker.toString().substring(0, 8)}...\n` +
+                  `- Initializer NFTs: ${escrowData.initializerNftCount} (${formatNftMints(escrowData.initializerNftMints)})\n` +
+                  `- Taker NFTs: ${escrowData.takerNftCount} (${formatNftMints(escrowData.takerNftMints)})\n` +
+                  `- Initializer deposited: ${escrowData.initializerDeposited}\n` +
+                  `- Taker deposited: ${escrowData.takerDeposited}\n` +
+                  `- Created at: ${new Date(createdAtMs).toLocaleString()}\n` +
+                  `- Expires at: ${expirationDate.toLocaleString()}`
+                );
+              }
+            }).catch(error => {
+              console.error('Error checking escrow account:', error);
+            });
+          }
         }
       });
 

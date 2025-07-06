@@ -290,6 +290,24 @@ export async function createCancelInstruction(
 }
 
 /**
+ * Define the structure of the escrow account data
+ */
+export interface EscrowAccountData {
+  isInitialized: boolean;
+  initializer: PublicKey;
+  taker: PublicKey;
+  initializerNftCount: number;
+  takerNftCount: number;
+  initializerNftMints: PublicKey[];
+  takerNftMints: PublicKey[];
+  initializerDeposited: boolean;
+  takerDeposited: boolean;
+  bump: number;
+  createdAt: bigint;
+  timeoutInSeconds: bigint;
+}
+
+/**
  * SwapEscrowClient class for interacting with the swap escrow program
  */
 export class SwapEscrowClient {
@@ -297,6 +315,103 @@ export class SwapEscrowClient {
 
   constructor(connection: Connection) {
     this.connection = connection;
+  }
+
+  /**
+   * Check if an escrow account exists for the given initializer and taker
+   * @param initializer The initializer's public key
+   * @param taker The taker's public key
+   * @returns The escrow account data if it exists, null otherwise
+   */
+  async getEscrowAccountData(initializerPubkey: PublicKey, takerPubkey: PublicKey): Promise<EscrowAccountData | null> {
+    try {
+      // Find the escrow account PDA
+      const [escrowAccount] = await findEscrowAccount(initializerPubkey, takerPubkey);
+      
+      console.log(`Checking escrow account: ${escrowAccount.toString()}`);
+      
+      // Get the account info
+      const accountInfo = await this.connection.getAccountInfo(escrowAccount);
+      
+      // If the account doesn't exist, return null
+      if (!accountInfo) {
+        console.log('Escrow account does not exist');
+        return null;
+      }
+      
+      console.log('Escrow account exists, parsing data...');
+      
+      // Parse the account data
+      const data = accountInfo.data;
+      
+      // Skip the 8-byte discriminator
+      let offset = 8;
+      
+      // Read initializer public key (32 bytes)
+      const initializer = new PublicKey(data.slice(offset, offset + 32));
+      offset += 32;
+      
+      // Read taker public key (32 bytes)
+      const taker = new PublicKey(data.slice(offset, offset + 32));
+      offset += 32;
+      
+      // Read NFT counts (1 byte each)
+      const initializerNftCount = data[offset++];
+      const takerNftCount = data[offset++];
+      
+      // Read initializer NFT mints (32 bytes each, max 3)
+      const initializerNftMints: PublicKey[] = [];
+      for (let i = 0; i < 3; i++) {
+        if (i < initializerNftCount) {
+          initializerNftMints.push(new PublicKey(data.slice(offset, offset + 32)));
+        }
+        offset += 32; // Always advance offset even if we don't use the mint
+      }
+      
+      // Read taker NFT mints (32 bytes each, max 3)
+      const takerNftMints: PublicKey[] = [];
+      for (let i = 0; i < 3; i++) {
+        if (i < takerNftCount) {
+          takerNftMints.push(new PublicKey(data.slice(offset, offset + 32)));
+        }
+        offset += 32; // Always advance offset even if we don't use the mint
+      }
+      
+      // Read deposit status (1 byte each)
+      const initializerDeposited = Boolean(data[offset++]);
+      const takerDeposited = Boolean(data[offset++]);
+      
+      // Read is_initialized (1 byte)
+      const isInitialized = Boolean(data[offset++]);
+      
+      // Read bump (1 byte)
+      const bump = data[offset++];
+      
+      // Read created_at (8 bytes, i64)
+      const createdAt = data.readBigInt64LE(offset);
+      offset += 8;
+      
+      // Read timeout_in_seconds (8 bytes, i64)
+      const timeoutInSeconds = data.readBigInt64LE(offset);
+      
+      return {
+        isInitialized,
+        initializer,
+        taker,
+        initializerNftCount,
+        takerNftCount,
+        initializerNftMints,
+        takerNftMints,
+        initializerDeposited,
+        takerDeposited,
+        bump,
+        createdAt,
+        timeoutInSeconds
+      };
+    } catch (error) {
+      console.error('Error checking escrow account:', error);
+      return null;
+    }
   }
 
   /**
@@ -380,80 +495,5 @@ export class SwapEscrowClient {
     const instruction = await createCancelInstruction(initializer, taker);
     const transaction = new Transaction().add(instruction);
     return await sendTransaction(transaction);
-  }
-
-  /**
-   * Get the escrow account data
-   */
-  async getEscrowAccount(initializer: PublicKey, taker: PublicKey): Promise<any> {
-    const [escrowAccount] = await findEscrowAccount(initializer, taker);
-    const accountInfo = await this.connection.getAccountInfo(escrowAccount);
-    
-    if (!accountInfo) {
-      throw new Error('Escrow account not found');
-    }
-
-    // Parse the account data based on the escrow account structure
-    // This is a simplified version and should be expanded based on the actual account structure
-    const data = accountInfo.data;
-    
-    // Skip the 8-byte discriminator
-    let offset = 8;
-    
-    const initializerPubkey = new PublicKey(data.slice(offset, offset + 32));
-    offset += 32;
-    
-    const takerKey = new PublicKey(data.slice(offset, offset + 32));
-    offset += 32;
-    
-    const initializerNftCount = data[offset];
-    offset += 1;
-    
-    const takerNftCount = data[offset];
-    offset += 1;
-    
-    const initializerNftMints: PublicKey[] = [];
-    for (let i = 0; i < 3; i++) {
-      initializerNftMints.push(new PublicKey(data.slice(offset, offset + 32)));
-      offset += 32;
-    }
-    
-    const takerNftMints: PublicKey[] = [];
-    for (let i = 0; i < 3; i++) {
-      takerNftMints.push(new PublicKey(data.slice(offset, offset + 32)));
-      offset += 32;
-    }
-    
-    const initializerDeposited = Boolean(data[offset]);
-    offset += 1;
-    
-    const takerDeposited = Boolean(data[offset]);
-    offset += 1;
-    
-    const isInitialized = Boolean(data[offset]);
-    offset += 1;
-    
-    const bump = data[offset];
-    offset += 1;
-    
-    const createdAt = data.readBigInt64LE(offset);
-    offset += 8;
-    
-    const timeoutInSeconds = data.readBigInt64LE(offset);
-    
-    return {
-      initializer: initializerPubkey,
-      taker: takerKey,
-      initializerNftCount,
-      takerNftCount,
-      initializerNftMints: initializerNftMints.slice(0, initializerNftCount),
-      takerNftMints: takerNftMints.slice(0, takerNftCount),
-      initializerDeposited,
-      takerDeposited,
-      isInitialized,
-      bump,
-      createdAt,
-      timeoutInSeconds,
-    };
   }
 }

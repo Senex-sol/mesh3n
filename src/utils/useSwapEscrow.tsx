@@ -3,7 +3,7 @@ import { PublicKey, Transaction } from '@solana/web3.js';
 import { useConnection } from './ConnectionProvider';
 import { useMobileWallet } from './useMobileWallet';
 import { useAuthorization } from './useAuthorization';
-import { SwapEscrowClient, InitializeArgs, DepositArgs } from './SwapEscrowClient';
+import { SwapEscrowClient, InitializeArgs, DepositArgs, EscrowAccountData } from './SwapEscrowClient';
 import { alertAndLog } from './alertAndLog';
 
 export const useSwapEscrow = () => {
@@ -172,7 +172,7 @@ export const useSwapEscrow = () => {
   }, [client, sendTransaction]);
 
   // Get escrow account data
-  const getEscrowAccount = useCallback(async (
+  const getEscrowAccountData = useCallback(async (
     initializer: PublicKey,
     taker: PublicKey
   ) => {
@@ -182,7 +182,7 @@ export const useSwapEscrow = () => {
     }
 
     try {
-      return await client.getEscrowAccount(initializer, taker);
+      return await client.getEscrowAccountData(initializer, taker);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       setError(errorMessage);
@@ -191,12 +191,36 @@ export const useSwapEscrow = () => {
     }
   }, [client]);
 
+  // Check if an escrow account exists for the given initializer and taker
+  const checkEscrowAccount = useCallback(async (
+    initializer: PublicKey,
+    taker: PublicKey
+  ): Promise<EscrowAccountData | null> => {
+    if (!client) {
+      setError('Swap escrow client not initialized');
+      return null;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+      return await client.getEscrowAccountData(initializer, taker);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      setError(`Error checking escrow account: ${errorMessage}`);
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, [client]);
+
   return {
     initializeEscrow,
     depositNFTs,
     completeSwap,
     cancelSwap,
-    getEscrowAccount,
+    checkEscrowAccount,
+    getEscrowAccountData,
     loading,
     error,
   };

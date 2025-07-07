@@ -13,6 +13,8 @@ import { useSwapEscrow } from './useSwapEscrow';
 import { alertAndLog } from './alertAndLog';
 import { useAbly } from "./AblyProvider";
 import { useAuthorization } from "./useAuthorization";
+import { EscrowModal } from '../components/EscrowModal';
+import { EscrowAccountData } from './SwapEscrowClient';
 
 // Define the NFT interface based on the one in NFTGalleryScreen
 interface NFTFile {
@@ -172,6 +174,10 @@ export const SwapProvider: FC<SwapProviderProps> = ({ children }) => {
   // Track whether we've already subscribed to Ably events
   const hasSubscribedRef = useRef(false);
   
+  // State for escrow modal
+  const [escrowModalVisible, setEscrowModalVisible] = useState(false);
+  const [currentEscrowData, setCurrentEscrowData] = useState<EscrowAccountData | null>(null);
+  
   // Import the useSwapEscrow hook
   const { initializeEscrow, checkEscrowAccount, loading: swapEscrowLoading, error: swapEscrowError } = useSwapEscrow();
 
@@ -220,28 +226,12 @@ export const SwapProvider: FC<SwapProviderProps> = ({ children }) => {
               new PublicKey(message.data)
             ).then(escrowData => {
               if (escrowData) {
-                // Format the NFT mints for display
-                const formatNftMints = (mints: PublicKey[]) => {
-                  return mints.map(mint => mint.toString().substring(0, 8) + '...').join(', ');
-                };
+                // Store escrow data and show modal
+                setCurrentEscrowData(escrowData);
+                setEscrowModalVisible(true);
                 
-                // Calculate expiration time
-                const createdAtMs = Number(escrowData.createdAt) * 1000;
-                const timeoutMs = Number(escrowData.timeoutInSeconds) * 1000;
-                const expirationDate = new Date(createdAtMs + timeoutMs);
-                
-                alertAndLog(
-                  'Existing Escrow Found', 
-                  `Escrow account exists between you and this partner:\n` +
-                  `- Initializer: ${escrowData.initializer.toString().substring(0, 8)}...\n` +
-                  `- Taker: ${escrowData.taker.toString().substring(0, 8)}...\n` +
-                  `- Initializer NFTs: ${escrowData.initializerNftCount} (${formatNftMints(escrowData.initializerNftMints)})\n` +
-                  `- Taker NFTs: ${escrowData.takerNftCount} (${formatNftMints(escrowData.takerNftMints)})\n` +
-                  `- Initializer deposited: ${escrowData.initializerDeposited}\n` +
-                  `- Taker deposited: ${escrowData.takerDeposited}\n` +
-                  `- Created at: ${new Date(createdAtMs).toLocaleString()}\n` +
-                  `- Expires at: ${expirationDate.toLocaleString()}`
-                );
+                // Also log to console for debugging
+                console.log('Found existing escrow account:', escrowData);
               }
             }).catch(error => {
               console.error('Error checking escrow account:', error);
@@ -285,28 +275,12 @@ export const SwapProvider: FC<SwapProviderProps> = ({ children }) => {
               new PublicKey(message.data)
             ).then(escrowData => {
               if (escrowData) {
-                // Format the NFT mints for display
-                const formatNftMints = (mints: PublicKey[]) => {
-                  return mints.map(mint => mint.toString().substring(0, 8) + '...').join(', ');
-                };
+                // Store escrow data and show modal
+                setCurrentEscrowData(escrowData);
+                setEscrowModalVisible(true);
                 
-                // Calculate expiration time
-                const createdAtMs = Number(escrowData.createdAt) * 1000;
-                const timeoutMs = Number(escrowData.timeoutInSeconds) * 1000;
-                const expirationDate = new Date(createdAtMs + timeoutMs);
-                
-                alertAndLog(
-                  'Existing Escrow Found', 
-                  `Escrow account exists between you and this partner:\n` +
-                  `- Initializer: ${escrowData.initializer.toString().substring(0, 8)}...\n` +
-                  `- Taker: ${escrowData.taker.toString().substring(0, 8)}...\n` +
-                  `- Initializer NFTs: ${escrowData.initializerNftCount} (${formatNftMints(escrowData.initializerNftMints)})\n` +
-                  `- Taker NFTs: ${escrowData.takerNftCount} (${formatNftMints(escrowData.takerNftMints)})\n` +
-                  `- Initializer deposited: ${escrowData.initializerDeposited}\n` +
-                  `- Taker deposited: ${escrowData.takerDeposited}\n` +
-                  `- Created at: ${new Date(createdAtMs).toLocaleString()}\n` +
-                  `- Expires at: ${expirationDate.toLocaleString()}`
-                );
+                // Also log to console for debugging
+                console.log('Found existing escrow account:', escrowData);
               }
             }).catch(error => {
               console.error('Error checking escrow account:', error);
@@ -513,6 +487,11 @@ export const SwapProvider: FC<SwapProviderProps> = ({ children }) => {
       }}
     >
       {children}
+      <EscrowModal 
+        visible={escrowModalVisible}
+        onClose={() => setEscrowModalVisible(false)}
+        escrowData={currentEscrowData}
+      />
     </SwapContext.Provider>
   );
 };

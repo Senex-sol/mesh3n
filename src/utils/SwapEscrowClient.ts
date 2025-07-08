@@ -10,7 +10,8 @@ const INSTRUCTION_DISCRIMINATORS = {
   initialize: Buffer.from([175, 175, 109, 31, 13, 152, 155, 237]),
   deposit: Buffer.from([242, 35, 198, 137, 82, 225, 242, 182]),
   complete: Buffer.from([59, 106, 39, 162, 48, 67, 155, 43]),
-  cancel: Buffer.from([232, 27, 153, 228, 233, 118, 118, 143]),
+  // cancel: Buffer.from([232, 27, 153, 228, 233, 118, 118, 143]),
+  cancel: Buffer.from([232, 219, 223, 41, 219, 236, 220, 190]),
 };
 
 /**
@@ -272,14 +273,13 @@ export async function createCancelInstruction(
   const [escrowAccount] = await findEscrowAccount(initializer, taker);
 
   // Create the instruction data
-  const data = Buffer.alloc(1);
-  data.set(INSTRUCTION_DISCRIMINATORS.cancel);
+  const data = Buffer.alloc(8); // Allocate 8 bytes for the discriminator
+  data.set(INSTRUCTION_DISCRIMINATORS.cancel, 0);
 
   // Create the accounts array
   const keys = [
-    { pubkey: initializer, isSigner: true, isWritable: true },
     { pubkey: escrowAccount, isSigner: false, isWritable: true },
-    { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+    { pubkey: initializer, isSigner: true, isWritable: true },
   ];
 
   return new TransactionInstruction({
@@ -431,7 +431,6 @@ export class SwapEscrowClient {
     
     const instruction = await createInitializeInstruction(initializer, taker, args);
     transaction.add(instruction);
-    console.log('Sending transaction: ' + JSON.stringify(transaction));
     return await sendTransaction(transaction);
   }
 
@@ -492,6 +491,7 @@ export class SwapEscrowClient {
     taker: PublicKey,
     sendTransaction: (transaction: Transaction) => Promise<string>
   ): Promise<string> {
+    console.log('Canceling swap: ' + initializer.toBase58() + ' ' + taker.toBase58());
     const instruction = await createCancelInstruction(initializer, taker);
     const transaction = new Transaction().add(instruction);
     return await sendTransaction(transaction);

@@ -179,7 +179,7 @@ export const SwapProvider: FC<SwapProviderProps> = ({ children }) => {
   const [currentEscrowData, setCurrentEscrowData] = useState<EscrowAccountData | null>(null);
   
   // Import the useSwapEscrow hook
-  const { initializeEscrow, checkEscrowAccount, loading: swapEscrowLoading, error: swapEscrowError } = useSwapEscrow();
+  const { initializeEscrow, checkEscrowAccount, cancelSwap, loading: swapEscrowLoading, error: swapEscrowError } = useSwapEscrow();
 
   // Listen for swap partner data on the Ably channel
   useEffect(() => {
@@ -491,6 +491,7 @@ export const SwapProvider: FC<SwapProviderProps> = ({ children }) => {
         visible={escrowModalVisible}
         onClose={() => setEscrowModalVisible(false)}
         escrowData={currentEscrowData}
+        cancelEscrow={cancelSwap}
       />
     </SwapContext.Provider>
   );

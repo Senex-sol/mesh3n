@@ -44,6 +44,7 @@ export const useSwapEscrow = () => {
         console.log('Setting fee payer for transaction');
         transaction.feePayer = selectedAccount.publicKey;
       }
+      console.log('Sending transaction: ' + JSON.stringify(transaction));
 
       // Use the signAndSendTransaction function from useMobileWallet
       // Pass both required parameters: transaction and minContextSlot

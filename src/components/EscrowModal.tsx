@@ -1,15 +1,18 @@
-import React from 'react';
-import { View, Text, Modal, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, Modal, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { PublicKey } from '@solana/web3.js';
 import { EscrowAccountData } from '../utils/SwapEscrowClient';
+import { alertAndLog } from '../utils/alertAndLog';
 
 interface EscrowModalProps {
   visible: boolean;
   onClose: () => void;
   escrowData: EscrowAccountData | null;
+  cancelEscrow: (initializer: PublicKey, taker: PublicKey) => Promise<string | null>;
 }
 
-export const EscrowModal: React.FC<EscrowModalProps> = ({ visible, onClose, escrowData }) => {
+export const EscrowModal: React.FC<EscrowModalProps> = ({ visible, onClose, escrowData, cancelEscrow }) => {
+  const [isCancelling, setIsCancelling] = useState(false);
   if (!escrowData) return null;
 
   // Format the NFT mints for display
@@ -31,7 +34,12 @@ export const EscrowModal: React.FC<EscrowModalProps> = ({ visible, onClose, escr
     >
       <View style={styles.centeredView}>
         <View style={styles.modalView}>
-          <Text style={styles.modalTitle}>Existing Escrow Found</Text>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Existing Escrow Found</Text>
+            <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+              <Text style={styles.closeButtonText}>✕</Text>
+            </TouchableOpacity>
+          </View>
           
           <ScrollView style={styles.scrollView}>
             <Text style={styles.sectionTitle}>Participants</Text>
@@ -90,8 +98,42 @@ export const EscrowModal: React.FC<EscrowModalProps> = ({ visible, onClose, escr
             </View>
           </ScrollView>
 
-          <TouchableOpacity style={styles.button} onPress={onClose}>
-            <Text style={styles.buttonText}>Cancel</Text>
+          <TouchableOpacity 
+            style={[styles.button, isCancelling && styles.buttonDisabled]} 
+            onPress={async () => {
+              if (!escrowData || isCancelling) return;
+              
+              try {
+                setIsCancelling(true);
+                const signature = await cancelEscrow(
+                  escrowData.initializer,
+                  escrowData.taker
+                );
+                
+                if (signature) {
+                  alertAndLog('Escrow Cancelled', `The escrow has been successfully cancelled. Transaction: ${signature}`);
+                  onClose();
+                } else {
+                  alertAndLog('Error', 'Failed to cancel escrow');
+                }
+              } catch (error) {
+                const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+                alertAndLog('Error Cancelling Escrow', errorMessage);
+                console.error('Error cancelling escrow:', error);
+              } finally {
+                setIsCancelling(false);
+              }
+            }}
+            disabled={isCancelling}
+          >
+            {isCancelling ? (
+              <View style={styles.buttonContent}>
+                <ActivityIndicator size="small" color="#fff" />
+                <Text style={[styles.buttonText, styles.loadingText]}>Cancelling...</Text>
+              </View>
+            ) : (
+              <Text style={styles.buttonText}>Cancel Escrow</Text>
+            )}
           </TouchableOpacity>
         </View>
       </View>
@@ -122,11 +164,31 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 5,
   },
+  modalHeader: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
   modalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    marginBottom: 15,
     color: '#333',
+    flex: 1,
+  },
+  closeButton: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  closeButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#555',
   },
   scrollView: {
     width: '100%',
@@ -164,16 +226,28 @@ const styles = StyleSheet.create({
     marginVertical: 2,
   },
   button: {
-    backgroundColor: '#2196F3',
+    backgroundColor: '#E53935', // Red color for cancel action
     borderRadius: 20,
     padding: 10,
     elevation: 2,
     marginTop: 15,
     width: '80%',
   },
+  buttonDisabled: {
+    backgroundColor: '#9E9E9E', // Gray when disabled
+    opacity: 0.7,
+  },
+  buttonContent: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   buttonText: {
     color: 'white',
     fontWeight: 'bold',
     textAlign: 'center',
+  },
+  loadingText: {
+    marginLeft: 10,
   },
 });

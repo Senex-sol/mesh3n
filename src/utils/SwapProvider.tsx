@@ -112,6 +112,12 @@ export interface TradeSlots {
   partnerNFTs: (NFT|null)[];
 }
 
+export interface SwapStatusOverlayProps {
+  visible: boolean;
+  message: string;
+  isLoading: boolean;
+}
+
 export interface SwapProviderProps {
   children: ReactNode;
 }
@@ -128,6 +134,7 @@ export interface SwapContextState {
   acceptSwap: () => void;
   unacceptSwap: () => void;
   isConnected: boolean;
+  statusOverlay: SwapStatusOverlayProps;
 }
 
 export const SwapContext = createContext<SwapContextState>(
@@ -177,6 +184,9 @@ export const SwapProvider: FC<SwapProviderProps> = ({ children }) => {
   // State for escrow modal
   const [escrowModalVisible, setEscrowModalVisible] = useState(false);
   const [currentEscrowData, setCurrentEscrowData] = useState<EscrowAccountData | null>(null);
+  
+  // Status overlay state
+  const [statusOverlay, setStatusOverlay] = useState<SwapStatusOverlayProps>({ visible: false, message: '', isLoading: true });
   
   // Import the useSwapEscrow hook
   const { initializeEscrow, checkEscrowAccount, cancelSwap, loading: swapEscrowLoading, error: swapEscrowError } = useSwapEscrow();
@@ -319,9 +329,18 @@ export const SwapProvider: FC<SwapProviderProps> = ({ children }) => {
           if (!iMadeLastSwapChangeRef.current) {
             console.log('Partner was the last to change slots, they will initialize escrow');
             // Partner will initialize escrow
-            alertAndLog('Swap Accepted', 'Waiting for partner to initialize the escrow...');
+            setStatusOverlay({
+              visible: true,
+              message: 'Waiting for partner to initialize the escrow...',
+              isLoading: true
+            });
           } else {
             console.log('I was the last to change slots, initializing escrow');
+            setStatusOverlay({
+              visible: true,
+              message: 'Initializing escrow...',
+              isLoading: true
+            });
             initializeSwapEscrow();
           }
         }
@@ -411,11 +430,19 @@ export const SwapProvider: FC<SwapProviderProps> = ({ children }) => {
         initializeSwapEscrow();
       } else {
         console.log('Partner was the last to change slots, they will initialize escrow');
-        alertAndLog('Swap Accepted', 'Waiting for partner to initialize the escrow...');
+        setStatusOverlay({
+          visible: true,
+          message: 'Waiting for partner to initialize the escrow...',
+          isLoading: true
+        });
       }
     } else {
       console.log('Waiting for partner to accept the swap');
-      alertAndLog('Swap Accepted', 'Waiting for partner to accept...');
+      setStatusOverlay({
+        visible: true,
+        message: 'Waiting for partner to accept...',
+        isLoading: true
+      });
     }
   };
 
@@ -427,7 +454,12 @@ export const SwapProvider: FC<SwapProviderProps> = ({ children }) => {
   // Initialize the swap escrow
   const initializeSwapEscrow = useCallback(async () => {
     if (!selectedAccountRef.current || !swapPartnerRef.current?.walletAddress) {
-      alertAndLog('Error', 'Missing wallet information');
+      setStatusOverlay({
+        visible: true,
+        message: 'Error: Missing account or swap partner information',
+        isLoading: false
+      });
+      setTimeout(() => setStatusOverlay(prev => ({ ...prev, visible: false })), 3000);
       return;
     }
     
@@ -442,7 +474,12 @@ export const SwapProvider: FC<SwapProviderProps> = ({ children }) => {
         .map(nft => new PublicKey(nft.id));
       
       if (myNFTMints.length === 0 || partnerNFTMints.length === 0) {
-        alertAndLog('Error', 'Both sides must have at least one NFT selected');
+        setStatusOverlay({
+          visible: true,
+          message: 'Error: Both sides must have at least one NFT selected',
+          isLoading: false
+        });
+        setTimeout(() => setStatusOverlay(prev => ({ ...prev, visible: false })), 3000);
         return;
       }
       
@@ -460,13 +497,37 @@ export const SwapProvider: FC<SwapProviderProps> = ({ children }) => {
       });
       
       if (signature) {
-        alertAndLog('Success', 'Escrow initialized successfully! Transaction: ' + signature);
+        setStatusOverlay({
+          visible: true,
+          message: 'Escrow initialized successfully!',
+          isLoading: false
+        });
+        console.log('Escrow initialized with signature:', signature);
+        
+        // Hide success message after a few seconds
+        setTimeout(() => setStatusOverlay(prev => ({ ...prev, visible: false })), 3000);
       } else {
-        alertAndLog('Error', 'Failed to initialize escrow');
+        setStatusOverlay({
+          visible: true,
+          message: 'Error initializing escrow',
+          isLoading: false
+        });
+        console.error('Error initializing escrow');
+        
+        // Hide error message after a few seconds
+        setTimeout(() => setStatusOverlay(prev => ({ ...prev, visible: false })), 5000);
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      alertAndLog('Failed to initialize swap escrow', errorMessage);
+      setStatusOverlay({
+        visible: true,
+        message: `Error initializing escrow: ${errorMessage}`,
+        isLoading: false
+      });
+      console.error('Error initializing escrow:', error);
+      
+      // Hide error message after a few seconds
+      setTimeout(() => setStatusOverlay(prev => ({ ...prev, visible: false })), 5000);
     }
   }, [selectedAccountRef, swapPartnerRef, tradeSlotsRef, initializeEscrow]);
 
@@ -483,10 +544,12 @@ export const SwapProvider: FC<SwapProviderProps> = ({ children }) => {
         swapAccepted,
         acceptSwap,
         unacceptSwap,
-        isConnected
+        isConnected,
+        statusOverlay
       }}
     >
       {children}
+      
       <EscrowModal 
         visible={escrowModalVisible}
         onClose={() => setEscrowModalVisible(false)}

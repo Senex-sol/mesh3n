@@ -7,6 +7,7 @@ import { SignInFeature } from "../components/sign-in/sign-in-feature";
 import { HandshakeFeature } from "../components/handshake/handshake-feature";
 import { useAbly } from "../utils/AblyProvider";
 import { useSwap } from "../utils/SwapProvider";
+import { SwapStatusOverlay } from '../components/SwapStatusOverlay';
 
 // Define types for NFT data structure
 interface NFTFile {
@@ -106,7 +107,7 @@ export default function NFTGalleryScreen() {
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const { ablyClient, getChannel, channels } = useAbly();
-  const { swapPartner, sendSelectedNFTs, tradeSlots, setTradeSlots, sendTradeSlots, swapAccepted, acceptSwap, unacceptSwap, isConnected } = useSwap();
+  const { swapPartner, sendSelectedNFTs, tradeSlots, setTradeSlots, sendTradeSlots, swapAccepted, acceptSwap, unacceptSwap, isConnected, statusOverlay } = useSwap();
   const LIMIT = 20; // Number of NFTs per page
 
   // State for swap modal
@@ -618,6 +619,11 @@ export default function NFTGalleryScreen() {
 
           </View>
         </View>
+        <SwapStatusOverlay
+          visible={statusOverlay.visible}
+          message={statusOverlay.message}
+          isLoading={statusOverlay.isLoading}
+        />
       </Modal>
     );
   };

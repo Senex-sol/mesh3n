@@ -9,8 +9,7 @@ const SWAP_ESCROW_PROGRAM_ID = new PublicKey('Fup37jJN7tFaBmdwNegtCHd8Z8ruuiSL5d
 const INSTRUCTION_DISCRIMINATORS = {
   initialize: Buffer.from([175, 175, 109, 31, 13, 152, 155, 237]),
   deposit: Buffer.from([242, 35, 198, 137, 82, 225, 242, 182]),
-  complete: Buffer.from([59, 106, 39, 162, 48, 67, 155, 43]),
-  // cancel: Buffer.from([232, 27, 153, 228, 233, 118, 118, 143]),
+  complete: Buffer.from([0, 77, 224, 147, 136, 25, 88, 76]),
   cancel: Buffer.from([232, 219, 223, 41, 219, 236, 220, 190]),
 };
 
@@ -144,46 +143,31 @@ export interface DepositArgs {
  */
 export async function createDepositInstruction(
   depositor: PublicKey,
-  initializer: PublicKey,
-  taker: PublicKey,
-  args: DepositArgs
+  escrowAccount: PublicKey,
+  isInitializer: boolean,
+  mint: PublicKey,
+  nftIndex: number,
 ): Promise<TransactionInstruction> {
-  // Find the escrow account PDA
-  const [escrowAccount] = await findEscrowAccount(initializer, taker);
+  const tokenAccount = await findAssociatedTokenAccount(mint, depositor);
+  const vaultAccount = await findAssociatedTokenAccount(mint, escrowAccount);
 
   // Create the instruction data
-  const data = Buffer.alloc(1 + 1);
+  const data = Buffer.alloc(8 + 1 + 1);
   data.set(INSTRUCTION_DISCRIMINATORS.deposit);
-  data.writeUInt8(args.isInitializer ? 1 : 0, 8);
+  data.writeUInt8(isInitializer ? 1 : 0, 8);
+  data.writeUInt8(nftIndex, 9);
 
   // Create the accounts array
   const keys = [
     { pubkey: depositor, isSigner: true, isWritable: true },
     { pubkey: escrowAccount, isSigner: false, isWritable: true },
+    { pubkey: mint, isSigner: false, isWritable: false },
+    { pubkey: tokenAccount, isSigner: false, isWritable: true },
+    { pubkey: vaultAccount, isSigner: false, isWritable: true },
     { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
     { pubkey: ASSOCIATED_TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
     { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
-    { pubkey: SYSVAR_RENT_PUBKEY, isSigner: false, isWritable: false },
   ];
-
-  // Add the remaining accounts (token accounts and vault accounts)
-  for (const mint of args.nftMints) {
-    // The user's token account that holds the NFT
-    const tokenAccount = await findAssociatedTokenAccount(mint, depositor);
-    keys.push({
-      pubkey: tokenAccount,
-      isSigner: false,
-      isWritable: true,
-    });
-
-    // The vault account that will receive the NFT
-    const vaultAccount = await findAssociatedTokenAccount(mint, escrowAccount);
-    keys.push({
-      pubkey: vaultAccount,
-      isSigner: false,
-      isWritable: true,
-    });
-  }
 
   return new TransactionInstruction({
     programId: SWAP_ESCROW_PROGRAM_ID,
@@ -300,6 +284,8 @@ export interface EscrowAccountData {
   takerNftCount: number;
   initializerNftMints: PublicKey[];
   takerNftMints: PublicKey[];
+  initializerNftDeposited: boolean[];
+  takerNftDeposited: boolean[];
   initializerDeposited: boolean;
   takerDeposited: boolean;
   bump: number;
@@ -377,7 +363,19 @@ export class SwapEscrowClient {
         offset += 32; // Always advance offset even if we don't use the mint
       }
       
-      // Read deposit status (1 byte each)
+      // Read initializer NFT deposit status (1 byte each, max 3)
+      const initializerNftDeposited: boolean[] = [];
+      for (let i = 0; i < 3; i++) {
+        initializerNftDeposited.push(Boolean(data[offset++]));
+      }
+      
+      // Read taker NFT deposit status (1 byte each, max 3)
+      const takerNftDeposited: boolean[] = [];
+      for (let i = 0; i < 3; i++) {
+        takerNftDeposited.push(Boolean(data[offset++]));
+      }
+      
+      // Read overall deposit status (1 byte each)
       const initializerDeposited = Boolean(data[offset++]);
       const takerDeposited = Boolean(data[offset++]);
       
@@ -402,6 +400,8 @@ export class SwapEscrowClient {
         takerNftCount,
         initializerNftMints,
         takerNftMints,
+        initializerNftDeposited,
+        takerNftDeposited,
         initializerDeposited,
         takerDeposited,
         bump,
@@ -428,9 +428,14 @@ export class SwapEscrowClient {
     // The initializer will be set as the fee payer when the transaction is signed
     // For now, we'll use a placeholder that will be replaced during signing
     const initializer = args.initializerPubkey;
+    const [escrowAccount] = await findEscrowAccount(initializer, taker);
     
     const instruction = await createInitializeInstruction(initializer, taker, args);
     transaction.add(instruction);
+    args.initializerNftMints.forEach(async (mint, index) => {
+      const instruction = await createDepositInstruction(initializer, escrowAccount, true, mint, index);
+      transaction.add(instruction);
+    });
     return await sendTransaction(transaction);
   }
 
@@ -449,9 +454,12 @@ export class SwapEscrowClient {
     // The depositor will be set as the fee payer when the transaction is signed
     // We'll determine if it's the initializer or taker based on the args
     const depositor = args.isInitializer ? initializer : taker;
-    
-    const instruction = await createDepositInstruction(depositor, initializer, taker, args);
-    transaction.add(instruction);
+    const [escrowAccount] = await findEscrowAccount(initializer, taker);
+
+    args.nftMints.forEach(async (mint, index) => {
+      const instruction = await createDepositInstruction(depositor, escrowAccount, args.isInitializer, mint, index);
+      transaction.add(instruction);
+    });
     return await sendTransaction(transaction);
   }
 

@@ -153,6 +153,18 @@ export const SwapProvider: FC<SwapProviderProps> = ({ children }) => {
   const [iMadeLastSwapChange, setIMadeLastSwapChange] = useState(false);
   const [swapAccepted, setSwapAccepted] = useState(false);
   
+  const activeChannelRef = useRef<any | null>(null);
+  useEffect(() => {
+    if (ablyClient) {
+      const channelKeys = Object.keys(channels);
+      if (channelKeys.length > 0) {
+        const activeChannelName = channelKeys[0];
+        const channel = channels[activeChannelName];
+        activeChannelRef.current = channel;
+      }
+    }
+  }, [ablyClient, channels]);
+
   const swapPartnerRef = useRef(swapPartner);
   useEffect(() => {
     swapPartnerRef.current = swapPartner;
@@ -189,7 +201,7 @@ export const SwapProvider: FC<SwapProviderProps> = ({ children }) => {
   const [statusOverlay, setStatusOverlay] = useState<SwapStatusOverlayProps>({ visible: false, message: '', isLoading: true });
   
   // Import the useSwapEscrow hook
-  const { initializeEscrow, checkEscrowAccount, cancelSwap, loading: swapEscrowLoading, error: swapEscrowError } = useSwapEscrow();
+  const { initializeEscrow, depositNFTs, checkEscrowAccount, cancelSwap, loading: swapEscrowLoading, error: swapEscrowError } = useSwapEscrow();
 
   // Listen for swap partner data on the Ably channel
   useEffect(() => {
@@ -359,6 +371,21 @@ export const SwapProvider: FC<SwapProviderProps> = ({ children }) => {
         });
       });
 
+      channel.subscribe('escrow-initialized', (message: any) => {
+        if (selectedAccount?.publicKey.toString() === message.data.walletAddress) {
+          return;
+        }
+        console.log('Received escrow initialized:', message.data);
+        
+        setStatusOverlay({
+          visible: true,
+          message: 'Escrow initialized, depositing NFTs...',
+          isLoading: true
+        });
+
+        depositAsTaker();
+      });
+
       // Mark as subscribed
       hasSubscribedRef.current = true;
     }
@@ -459,7 +486,6 @@ export const SwapProvider: FC<SwapProviderProps> = ({ children }) => {
         message: 'Error: Missing account or swap partner information',
         isLoading: false
       });
-      setTimeout(() => setStatusOverlay(prev => ({ ...prev, visible: false })), 3000);
       return;
     }
     
@@ -479,7 +505,6 @@ export const SwapProvider: FC<SwapProviderProps> = ({ children }) => {
           message: 'Error: Both sides must have at least one NFT selected',
           isLoading: false
         });
-        setTimeout(() => setStatusOverlay(prev => ({ ...prev, visible: false })), 3000);
         return;
       }
       
@@ -489,23 +514,23 @@ export const SwapProvider: FC<SwapProviderProps> = ({ children }) => {
       // Initialize the escrow
       const signature = await initializeEscrow(takerPublicKey, {
         initializerPubkey: selectedAccountRef.current.publicKey,
-        initializerNftCount: myNFTMints.length,
-        takerNftCount: partnerNFTMints.length,
-        initializerNftMints: myNFTMints,
-        takerNftMints: partnerNFTMints,
+        initializerNftCount: partnerNFTMints.length,
+        takerNftCount: myNFTMints.length,
+        initializerNftMints: partnerNFTMints,
+        takerNftMints: myNFTMints,
         timeoutInSeconds: 3600 // 1 hour timeout
       });
       
       if (signature) {
         setStatusOverlay({
           visible: true,
-          message: 'Escrow initialized successfully!',
-          isLoading: false
+          message: 'Escrow initialized, NFTs deposited, waiting for partner to deposit NFTs...',
+          isLoading: true
         });
         console.log('Escrow initialized with signature:', signature);
-        
-        // Hide success message after a few seconds
-        setTimeout(() => setStatusOverlay(prev => ({ ...prev, visible: false })), 3000);
+
+        // Send the signature to the partner
+        activeChannelRef.current.publish('escrow-initialized', { signature, walletAddress: selectedAccount?.publicKey.toString() });
       } else {
         setStatusOverlay({
           visible: true,
@@ -513,9 +538,6 @@ export const SwapProvider: FC<SwapProviderProps> = ({ children }) => {
           isLoading: false
         });
         console.error('Error initializing escrow');
-        
-        // Hide error message after a few seconds
-        setTimeout(() => setStatusOverlay(prev => ({ ...prev, visible: false })), 5000);
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -525,11 +547,44 @@ export const SwapProvider: FC<SwapProviderProps> = ({ children }) => {
         isLoading: false
       });
       console.error('Error initializing escrow:', error);
-      
-      // Hide error message after a few seconds
-      setTimeout(() => setStatusOverlay(prev => ({ ...prev, visible: false })), 5000);
     }
   }, [selectedAccountRef, swapPartnerRef, tradeSlotsRef, initializeEscrow]);
+
+  const depositAsTaker = useCallback(async () => {
+    if (!selectedAccountRef.current || !swapPartnerRef.current?.walletAddress) {
+      setStatusOverlay({
+        visible: true,
+        message: 'Error: Missing account or swap partner information',
+        isLoading: false
+      });
+      return;
+    }
+
+    const partnerNFTMints = tradeSlotsRef.current.partnerNFTs
+        .filter((nft): nft is NFT => nft !== null)
+        .map(nft => new PublicKey(nft.id));
+
+    const signature = await depositNFTs(new PublicKey(swapPartnerRef.current?.walletAddress), selectedAccountRef.current.publicKey, {
+      isInitializer: false,
+      nftMints: partnerNFTMints,
+    });
+    
+    if (signature) {
+      setStatusOverlay({
+        visible: true,
+        message: 'NFTs deposited successfully',
+        isLoading: false
+      });
+      console.log('NFTs deposited with signature:', signature);
+    } else {
+      setStatusOverlay({
+        visible: true,
+        message: 'Error depositing NFTs',
+        isLoading: false
+      });
+      console.error('Error depositing NFTs');
+    }
+  }, [selectedAccountRef, swapPartnerRef, tradeSlotsRef, depositNFTs]);
 
   return (
     <SwapContext.Provider
@@ -554,6 +609,7 @@ export const SwapProvider: FC<SwapProviderProps> = ({ children }) => {
         visible={escrowModalVisible}
         onClose={() => setEscrowModalVisible(false)}
         escrowData={currentEscrowData}
+        depositNFTs={depositNFTs}
         cancelEscrow={cancelSwap}
       />
     </SwapContext.Provider>

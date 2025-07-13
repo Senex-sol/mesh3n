@@ -1,17 +1,19 @@
 import React, { useState } from 'react';
 import { View, Text, Modal, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { PublicKey } from '@solana/web3.js';
-import { EscrowAccountData } from '../utils/SwapEscrowClient';
+import { DepositArgs, EscrowAccountData } from '../utils/SwapEscrowClient';
 import { alertAndLog } from '../utils/alertAndLog';
 
 interface EscrowModalProps {
   visible: boolean;
   onClose: () => void;
   escrowData: EscrowAccountData | null;
+  depositNFTs: (initializer: PublicKey, taker: PublicKey, args: DepositArgs) => Promise<string | null>;
   cancelEscrow: (initializer: PublicKey, taker: PublicKey) => Promise<string | null>;
 }
 
-export const EscrowModal: React.FC<EscrowModalProps> = ({ visible, onClose, escrowData, cancelEscrow }) => {
+export const EscrowModal: React.FC<EscrowModalProps> = ({ visible, onClose, escrowData, depositNFTs, cancelEscrow }) => {
+  const [isDepositing, setIsDepositing] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   if (!escrowData) return null;
 
@@ -98,10 +100,54 @@ export const EscrowModal: React.FC<EscrowModalProps> = ({ visible, onClose, escr
             </View>
           </ScrollView>
 
+          {!escrowData.initializerDeposited && (
+            <TouchableOpacity 
+              style={[styles.button, (isDepositing || isCancelling) && styles.buttonDisabled]} 
+              onPress={async () => {
+                if (!escrowData || isDepositing || isCancelling) return;
+                
+                try {
+                  setIsDepositing(true);
+                  const signature = await depositNFTs(
+                    escrowData.initializer,
+                    escrowData.taker,
+                    {
+                      isInitializer: true,
+                      nftMints: escrowData.initializerNftMints,
+                    }
+                  );
+                  
+                  if (signature) {
+                    alertAndLog('Escrow Deposited', `The escrow has been successfully deposited. Transaction: ${signature}`);
+                    onClose();
+                  } else {
+                    alertAndLog('Error', 'Failed to deposit escrow');
+                  }
+                } catch (error) {
+                  const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+                  alertAndLog('Error Depositing Escrow', errorMessage);
+                  console.error('Error depositing escrow:', error);
+                } finally {
+                  setIsDepositing(false);
+                }
+              }}
+              disabled={isDepositing || isCancelling}
+            >
+              {isDepositing ? (
+                <View style={styles.buttonContent}>
+                  <ActivityIndicator size="small" color="#fff" />
+                  <Text style={[styles.buttonText, styles.loadingText]}>Depositing...</Text>
+                </View>
+              ) : (
+                <Text style={styles.buttonText}>Deposit Escrow</Text>
+              )}
+            </TouchableOpacity>
+          )}
+
           <TouchableOpacity 
-            style={[styles.button, isCancelling && styles.buttonDisabled]} 
+            style={[styles.button, (isDepositing || isCancelling) && styles.buttonDisabled]} 
             onPress={async () => {
-              if (!escrowData || isCancelling) return;
+              if (!escrowData || isDepositing || isCancelling) return;
               
               try {
                 setIsCancelling(true);

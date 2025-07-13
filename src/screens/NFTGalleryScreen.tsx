@@ -139,7 +139,7 @@ export default function NFTGalleryScreen() {
       // Filter out NFTs with blank names
       const filteredNFTs = data.result.items.filter((nft: NFT) => {
         const name = nft?.content?.metadata?.name;
-        return name !== undefined && name !== null && name.trim() !== '';
+        return nft?.interface !== 'MplCoreAsset' && name !== undefined && name !== null && name.trim() !== '';
       });
 
       console.log('Filtered NFTs:', filteredNFTs.length, 'items');

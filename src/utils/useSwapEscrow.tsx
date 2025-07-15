@@ -124,8 +124,8 @@ export const useSwapEscrow = () => {
   const completeSwap = useCallback(async (
     initializer: PublicKey,
     taker: PublicKey,
-    initializerNftMints: PublicKey[],
-    takerNftMints: PublicKey[]
+    isInitializer: boolean,
+    nftMints: PublicKey[],
   ): Promise<string | null> => {
     if (!client) {
       setError('Client not initialized');
@@ -136,8 +136,8 @@ export const useSwapEscrow = () => {
       return await client.complete(
         initializer,
         taker,
-        initializerNftMints,
-        takerNftMints,
+        isInitializer,
+        nftMints,
         sendTransaction
       );
     } catch (err) {
@@ -205,7 +205,11 @@ export const useSwapEscrow = () => {
     try {
       setLoading(true);
       setError(null);
-      return await client.getEscrowAccountData(initializer, taker);
+      let escrowData = await client.getEscrowAccountData(initializer, taker);
+      if (!escrowData) {
+        escrowData = await client.getEscrowAccountData(taker, initializer);
+      }
+      return escrowData;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       setError(`Error checking escrow account: ${errorMessage}`);

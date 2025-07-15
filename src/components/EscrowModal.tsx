@@ -5,16 +5,19 @@ import { DepositArgs, EscrowAccountData } from '../utils/SwapEscrowClient';
 import { alertAndLog } from '../utils/alertAndLog';
 
 interface EscrowModalProps {
+  selectedAccount: PublicKey | undefined;
   visible: boolean;
   onClose: () => void;
   escrowData: EscrowAccountData | null;
   depositNFTs: (initializer: PublicKey, taker: PublicKey, args: DepositArgs) => Promise<string | null>;
+  completeSwap: (initializer: PublicKey, taker: PublicKey, isInitializer: boolean, nftMints: PublicKey[]) => Promise<string | null>;
   cancelEscrow: (initializer: PublicKey, taker: PublicKey) => Promise<string | null>;
 }
 
-export const EscrowModal: React.FC<EscrowModalProps> = ({ visible, onClose, escrowData, depositNFTs, cancelEscrow }) => {
+export const EscrowModal: React.FC<EscrowModalProps> = ({ selectedAccount, visible, onClose, escrowData, depositNFTs, completeSwap, cancelEscrow }) => {
   const [isDepositing, setIsDepositing] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [isCollecting, setIsCollecting] = useState(false);
   if (!escrowData) return null;
 
   // Format the NFT mints for display
@@ -22,10 +25,7 @@ export const EscrowModal: React.FC<EscrowModalProps> = ({ visible, onClose, escr
     return mints.map(mint => mint.toString().substring(0, 8) + '...');
   };
 
-  // Calculate expiration time
-  const createdAtMs = Number(escrowData.createdAt) * 1000;
-  const timeoutMs = Number(escrowData.timeoutInSeconds) * 1000;
-  const expirationDate = new Date(createdAtMs + timeoutMs);
+  const isInitializer = escrowData.initializer.toString() === selectedAccount?.toString();
 
   return (
     <Modal
@@ -44,14 +44,9 @@ export const EscrowModal: React.FC<EscrowModalProps> = ({ visible, onClose, escr
           </View>
           
           <ScrollView style={styles.scrollView}>
-            <Text style={styles.sectionTitle}>Participants</Text>
             <View style={styles.infoRow}>
-              <Text style={styles.label}>Initializer:</Text>
-              <Text style={styles.value}>{escrowData.initializer.toString().substring(0, 8)}...</Text>
-            </View>
-            <View style={styles.infoRow}>
-              <Text style={styles.label}>Taker:</Text>
-              <Text style={styles.value}>{escrowData.taker.toString().substring(0, 8)}...</Text>
+              <Text style={styles.label}>I'm Initializer:</Text>
+              <Text style={styles.value}>{isInitializer ? 'Yes' : 'No'}</Text>
             </View>
 
             <Text style={styles.sectionTitle}>NFT Details</Text>
@@ -85,22 +80,20 @@ export const EscrowModal: React.FC<EscrowModalProps> = ({ visible, onClose, escr
               <Text style={styles.value}>{escrowData.initializerDeposited ? 'Yes' : 'No'}</Text>
             </View>
             <View style={styles.infoRow}>
+              <Text style={styles.label}>Initializer collected:</Text>
+              <Text style={styles.value}>{escrowData.initializerCollected ? 'Yes' : 'No'}</Text>
+            </View>
+            <View style={styles.infoRow}>
               <Text style={styles.label}>Taker deposited:</Text>
               <Text style={styles.value}>{escrowData.takerDeposited ? 'Yes' : 'No'}</Text>
             </View>
-
-            <Text style={styles.sectionTitle}>Timing</Text>
             <View style={styles.infoRow}>
-              <Text style={styles.label}>Created at:</Text>
-              <Text style={styles.value}>{new Date(createdAtMs).toLocaleString()}</Text>
-            </View>
-            <View style={styles.infoRow}>
-              <Text style={styles.label}>Expires at:</Text>
-              <Text style={styles.value}>{expirationDate.toLocaleString()}</Text>
+              <Text style={styles.label}>Taker collected:</Text>
+              <Text style={styles.value}>{escrowData.takerCollected ? 'Yes' : 'No'}</Text>
             </View>
           </ScrollView>
 
-          {!escrowData.initializerDeposited && (
+          {((isInitializer && !escrowData.initializerDeposited) || (!isInitializer && !escrowData.takerDeposited)) && (
             <TouchableOpacity 
               style={[styles.button, (isDepositing || isCancelling) && styles.buttonDisabled]} 
               onPress={async () => {
@@ -112,8 +105,8 @@ export const EscrowModal: React.FC<EscrowModalProps> = ({ visible, onClose, escr
                     escrowData.initializer,
                     escrowData.taker,
                     {
-                      isInitializer: true,
-                      nftMints: escrowData.initializerNftMints,
+                      isInitializer: isInitializer,
+                      nftMints: isInitializer ? escrowData.initializerNftMints : escrowData.takerNftMints,
                     }
                   );
                   
@@ -144,43 +137,88 @@ export const EscrowModal: React.FC<EscrowModalProps> = ({ visible, onClose, escr
             </TouchableOpacity>
           )}
 
-          <TouchableOpacity 
-            style={[styles.button, (isDepositing || isCancelling) && styles.buttonDisabled]} 
-            onPress={async () => {
-              if (!escrowData || isDepositing || isCancelling) return;
-              
-              try {
-                setIsCancelling(true);
-                const signature = await cancelEscrow(
-                  escrowData.initializer,
-                  escrowData.taker
-                );
+          {((isInitializer && escrowData.initializerDeposited && !escrowData.takerCollected) || (!isInitializer && escrowData.takerDeposited && !escrowData.initializerCollected)) && (
+            <TouchableOpacity 
+              style={[styles.button, (isCollecting || isCancelling) && styles.buttonDisabled]} 
+              onPress={async () => {
+                if (!escrowData || isCollecting || isCancelling) return;
                 
-                if (signature) {
-                  alertAndLog('Escrow Cancelled', `The escrow has been successfully cancelled. Transaction: ${signature}`);
-                  onClose();
-                } else {
-                  alertAndLog('Error', 'Failed to cancel escrow');
+                try {
+                  setIsCollecting(true);
+                  const nftMints = isInitializer ? escrowData.takerNftMints : escrowData.initializerNftMints;
+                  const signature = await completeSwap(
+                    escrowData.initializer,
+                    escrowData.taker,
+                    isInitializer,
+                    nftMints,
+                  );
+                  
+                  if (signature) {
+                    alertAndLog('Escrow Collected', `The escrow has been successfully collected. Transaction: ${signature}`);
+                    onClose();
+                  } else {
+                    alertAndLog('Error', 'Failed to collect escrow');
+                  }
+                } catch (error) {
+                  const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+                  alertAndLog('Error Collecting Escrow', errorMessage);
+                  console.error('Error collecting escrow:', error);
+                } finally {
+                  setIsCollecting(false);
                 }
-              } catch (error) {
-                const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-                alertAndLog('Error Cancelling Escrow', errorMessage);
-                console.error('Error cancelling escrow:', error);
-              } finally {
-                setIsCancelling(false);
-              }
-            }}
-            disabled={isCancelling}
-          >
-            {isCancelling ? (
-              <View style={styles.buttonContent}>
-                <ActivityIndicator size="small" color="#fff" />
-                <Text style={[styles.buttonText, styles.loadingText]}>Cancelling...</Text>
-              </View>
-            ) : (
-              <Text style={styles.buttonText}>Cancel Escrow</Text>
-            )}
-          </TouchableOpacity>
+              }}
+              disabled={isCollecting || isCancelling}
+            >
+              {isCollecting ? (
+                <View style={styles.buttonContent}>
+                  <ActivityIndicator size="small" color="#fff" />
+                  <Text style={[styles.buttonText, styles.loadingText]}>Collecting...</Text>
+                </View>
+              ) : (
+                <Text style={styles.buttonText}>Collect Escrow</Text>
+              )}
+            </TouchableOpacity>
+          )}
+
+          {isInitializer && !escrowData.takerCollected && (
+            <TouchableOpacity 
+              style={[styles.button, (isDepositing || isCancelling) && styles.buttonDisabled]} 
+              onPress={async () => {
+                if (!escrowData || isDepositing || isCancelling) return;
+                
+                try {
+                  setIsCancelling(true);
+                  const signature = await cancelEscrow(
+                    escrowData.initializer,
+                    escrowData.taker
+                  );
+                  
+                  if (signature) {
+                    alertAndLog('Escrow Cancelled', `The escrow has been successfully cancelled. Transaction: ${signature}`);
+                    onClose();
+                  } else {
+                    alertAndLog('Error', 'Failed to cancel escrow');
+                  }
+                } catch (error) {
+                  const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+                  alertAndLog('Error Cancelling Escrow', errorMessage);
+                  console.error('Error cancelling escrow:', error);
+                } finally {
+                  setIsCancelling(false);
+                }
+              }}
+              disabled={isCancelling}
+            >
+              {isCancelling ? (
+                <View style={styles.buttonContent}>
+                  <ActivityIndicator size="small" color="#fff" />
+                  <Text style={[styles.buttonText, styles.loadingText]}>Cancelling...</Text>
+                </View>
+              ) : (
+                <Text style={styles.buttonText}>Cancel Escrow</Text>
+              )}
+            </TouchableOpacity>
+          )}
         </View>
       </View>
     </Modal>

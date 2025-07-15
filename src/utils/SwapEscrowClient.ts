@@ -181,63 +181,33 @@ export async function createDepositInstruction(
  */
 export async function createCompleteInstruction(
   caller: PublicKey,
+  escrowAccount: PublicKey,
   initializer: PublicKey,
-  taker: PublicKey,
-  initializerNftMints: PublicKey[],
-  takerNftMints: PublicKey[]
+  isInitializer: boolean,
+  mint: PublicKey,
+  nftIndex: number,
 ): Promise<TransactionInstruction> {
-  // Find the escrow account PDA
-  const [escrowAccount] = await findEscrowAccount(initializer, taker);
+  const tokenAccount = await findAssociatedTokenAccount(mint, caller);
+  const vaultAccount = await findAssociatedTokenAccount(mint, escrowAccount);
 
   // Create the instruction data
-  const data = Buffer.alloc(1);
-  data.set(INSTRUCTION_DISCRIMINATORS.complete);
+  const data = Buffer.alloc(8 + 1 + 1);
+  data.set(INSTRUCTION_DISCRIMINATORS.complete, 0);
+  data.writeUInt8(isInitializer ? 1 : 0, 8);
+  data.writeUInt8(nftIndex, 9);
 
   // Create the accounts array
   const keys = [
     { pubkey: caller, isSigner: true, isWritable: true },
     { pubkey: escrowAccount, isSigner: false, isWritable: true },
+    { pubkey: initializer, isSigner: false, isWritable: true },
+    { pubkey: mint, isSigner: false, isWritable: false },
+    { pubkey: vaultAccount, isSigner: false, isWritable: true },
+    { pubkey: tokenAccount, isSigner: false, isWritable: true },
     { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+    { pubkey: ASSOCIATED_TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
     { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
   ];
-
-  // Add the remaining accounts for initializer's NFTs
-  for (const mint of initializerNftMints) {
-    // The vault account that holds the NFT
-    const vaultAccount = await findAssociatedTokenAccount(mint, escrowAccount);
-    keys.push({
-      pubkey: vaultAccount,
-      isSigner: false,
-      isWritable: true,
-    });
-
-    // The taker's token account that will receive the NFT
-    const takerTokenAccount = await findAssociatedTokenAccount(mint, taker);
-    keys.push({
-      pubkey: takerTokenAccount,
-      isSigner: false,
-      isWritable: true,
-    });
-  }
-
-  // Add the remaining accounts for taker's NFTs
-  for (const mint of takerNftMints) {
-    // The vault account that holds the NFT
-    const vaultAccount = await findAssociatedTokenAccount(mint, escrowAccount);
-    keys.push({
-      pubkey: vaultAccount,
-      isSigner: false,
-      isWritable: true,
-    });
-
-    // The initializer's token account that will receive the NFT
-    const initializerTokenAccount = await findAssociatedTokenAccount(mint, initializer);
-    keys.push({
-      pubkey: initializerTokenAccount,
-      isSigner: false,
-      isWritable: true,
-    });
-  }
 
   return new TransactionInstruction({
     programId: SWAP_ESCROW_PROGRAM_ID,
@@ -286,8 +256,12 @@ export interface EscrowAccountData {
   takerNftMints: PublicKey[];
   initializerNftDeposited: boolean[];
   takerNftDeposited: boolean[];
+  initializerNftCollected: boolean[];
+  takerNftCollected: boolean[];
   initializerDeposited: boolean;
   takerDeposited: boolean;
+  initializerCollected: boolean;
+  takerCollected: boolean;
   bump: number;
   createdAt: bigint;
   timeoutInSeconds: bigint;
@@ -374,10 +348,26 @@ export class SwapEscrowClient {
       for (let i = 0; i < 3; i++) {
         takerNftDeposited.push(Boolean(data[offset++]));
       }
+
+      // Read initializer NFT collected status (1 byte each, max 3)
+      const initializerNftCollected: boolean[] = [];
+      for (let i = 0; i < 3; i++) {
+        initializerNftCollected.push(Boolean(data[offset++]));
+      }
+      
+      // Read taker NFT collected status (1 byte each, max 3)
+      const takerNftCollected: boolean[] = [];
+      for (let i = 0; i < 3; i++) {
+        takerNftCollected.push(Boolean(data[offset++]));
+      }
       
       // Read overall deposit status (1 byte each)
       const initializerDeposited = Boolean(data[offset++]);
       const takerDeposited = Boolean(data[offset++]);
+
+      // Read overall collected status (1 byte each)
+      const initializerCollected = Boolean(data[offset++]);
+      const takerCollected = Boolean(data[offset++]);
       
       // Read is_initialized (1 byte)
       const isInitialized = Boolean(data[offset++]);
@@ -402,8 +392,12 @@ export class SwapEscrowClient {
         takerNftMints,
         initializerNftDeposited,
         takerNftDeposited,
+        initializerNftCollected,
+        takerNftCollected,
         initializerDeposited,
         takerDeposited,
+        initializerCollected,
+        takerCollected,
         bump,
         createdAt,
         timeoutInSeconds
@@ -469,25 +463,29 @@ export class SwapEscrowClient {
   async complete(
     initializer: PublicKey,
     taker: PublicKey,
-    initializerNftMints: PublicKey[],
-    takerNftMints: PublicKey[],
+    isInitializer: boolean,
+    nftMints: PublicKey[],
     sendTransaction: (transaction: Transaction) => Promise<string>
   ): Promise<string> {
     // Create a transaction first
     const transaction = new Transaction();
     
-    // The caller can be either the initializer or taker
-    // We'll use the taker as the default caller, but this will be replaced by the actual signer
-    const caller = taker;
+    // The caller will be set as the fee payer when the transaction is signed
+    // We'll determine if it's the initializer or taker based on the args
+    const caller = isInitializer ? initializer : taker;
+    const [escrowAccount] = await findEscrowAccount(initializer, taker);
     
-    const instruction = await createCompleteInstruction(
-      caller,
-      initializer,
-      taker,
-      initializerNftMints,
-      takerNftMints
-    );
-    transaction.add(instruction);
+    nftMints.forEach(async (mint, index) => {
+      const instruction = await createCompleteInstruction(
+        caller,
+        escrowAccount,
+        initializer,
+        isInitializer,
+        mint,
+        index,
+      );
+      transaction.add(instruction);
+    });
     return await sendTransaction(transaction);
   }
 

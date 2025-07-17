@@ -134,8 +134,8 @@ export async function createInitializeInstruction(
  * Interface for Deposit instruction arguments
  */
 export interface DepositArgs {
-  isInitializer: boolean;
-  nftMints: PublicKey[];
+  initializerNftMints: PublicKey[];
+  takerNftMints: PublicKey[];
 }
 
 /**
@@ -436,7 +436,7 @@ export class SwapEscrowClient {
   /**
    * Deposit NFTs into the escrow
    */
-  async deposit(
+  async depositAndCollect(
     initializer: PublicKey,
     taker: PublicKey,
     args: DepositArgs,
@@ -447,13 +447,18 @@ export class SwapEscrowClient {
     
     // The depositor will be set as the fee payer when the transaction is signed
     // We'll determine if it's the initializer or taker based on the args
-    const depositor = args.isInitializer ? initializer : taker;
     const [escrowAccount] = await findEscrowAccount(initializer, taker);
 
-    args.nftMints.forEach(async (mint, index) => {
-      const instruction = await createDepositInstruction(depositor, escrowAccount, args.isInitializer, mint, index);
+    args.takerNftMints.forEach(async (mint, index) => {
+      const instruction = await createDepositInstruction(taker, escrowAccount, false, mint, index);
       transaction.add(instruction);
     });
+    
+    args.initializerNftMints.forEach(async (mint, index) => {
+      const instruction = await createCompleteInstruction(taker, escrowAccount, initializer, false, mint, index);
+      transaction.add(instruction); 
+    });
+    
     return await sendTransaction(transaction);
   }
 

@@ -101,17 +101,29 @@ export default function NFTGalleryScreen() {
   const { selectedAccount } = useAuthorization();
   const [page, setPage] = useState(1);
   const [undecidedNfts, setUndecidedNfts] = useState<NFT[]>([]);
-  const [doWantNfts, setDoWantNfts] = useState<NFT[]>([]);
-  const [dontWantNfts, setDontWantNfts] = useState<NFT[]>([]);
   const [activeTab, setActiveTab] = useState<'undecided' | 'want' | 'dont-want'>('undecided');
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const { ablyClient, getChannel, channels } = useAbly();
-  const { swapPartner, sendSelectedNFTs, tradeSlots, setTradeSlots, sendTradeSlots, swapAccepted, acceptSwap, unacceptSwap, isConnected, statusOverlay } = useSwap();
+  const { 
+    doWantNfts,
+    setDoWantNfts,
+    dontWantNfts,
+    setDontWantNfts,
+    swapPartner,
+    sendSelectedNFTs,
+    swapModalVisible,
+    setSwapModalVisible,
+    tradeSlots,
+    setTradeSlots,
+    sendTradeSlots,
+    swapAccepted,
+    acceptSwap,
+    unacceptSwap,
+    isConnected,
+    statusOverlay
+  } = useSwap();
   const LIMIT = 20; // Number of NFTs per page
-
-  // State for swap modal
-  const [swapModalVisible, setSwapModalVisible] = useState(false);
 
   // Create a stable reference for NFT data fetching
   const walletAddress = swapPartner?.walletAddress;

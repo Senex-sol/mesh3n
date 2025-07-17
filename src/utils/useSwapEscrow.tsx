@@ -95,7 +95,7 @@ export const useSwapEscrow = () => {
   }, [client, sendTransaction]);
 
   // Deposit NFTs into the escrow
-  const depositNFTs = useCallback(async (
+  const depositAndCollectNFTs = useCallback(async (
     initializer: PublicKey,
     taker: PublicKey,
     args: DepositArgs
@@ -106,7 +106,7 @@ export const useSwapEscrow = () => {
     }
 
     try {
-      return await client.deposit(
+      return await client.depositAndCollect(
         initializer,
         taker,
         args,
@@ -221,7 +221,7 @@ export const useSwapEscrow = () => {
 
   return {
     initializeEscrow,
-    depositNFTs,
+    depositAndCollectNFTs,
     completeSwap,
     cancelSwap,
     checkEscrowAccount,

@@ -9,12 +9,12 @@ interface EscrowModalProps {
   visible: boolean;
   onClose: () => void;
   escrowData: EscrowAccountData | null;
-  depositNFTs: (initializer: PublicKey, taker: PublicKey, args: DepositArgs) => Promise<string | null>;
+  depositAndCollectNFTs: (initializer: PublicKey, taker: PublicKey, args: DepositArgs) => Promise<string | null>;
   completeSwap: (initializer: PublicKey, taker: PublicKey, isInitializer: boolean, nftMints: PublicKey[]) => Promise<string | null>;
   cancelEscrow: (initializer: PublicKey, taker: PublicKey) => Promise<string | null>;
 }
 
-export const EscrowModal: React.FC<EscrowModalProps> = ({ selectedAccount, visible, onClose, escrowData, depositNFTs, completeSwap, cancelEscrow }) => {
+export const EscrowModal: React.FC<EscrowModalProps> = ({ selectedAccount, visible, onClose, escrowData, depositAndCollectNFTs, completeSwap, cancelEscrow }) => {
   const [isDepositing, setIsDepositing] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   const [isCollecting, setIsCollecting] = useState(false);
@@ -101,12 +101,12 @@ export const EscrowModal: React.FC<EscrowModalProps> = ({ selectedAccount, visib
                 
                 try {
                   setIsDepositing(true);
-                  const signature = await depositNFTs(
+                  const signature = await depositAndCollectNFTs(
                     escrowData.initializer,
                     escrowData.taker,
                     {
-                      isInitializer: isInitializer,
-                      nftMints: isInitializer ? escrowData.initializerNftMints : escrowData.takerNftMints,
+                      initializerNftMints: escrowData.initializerNftMints,
+                      takerNftMints: escrowData.takerNftMints,
                     }
                   );
                   

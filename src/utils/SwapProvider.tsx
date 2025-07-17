@@ -123,9 +123,15 @@ export interface SwapProviderProps {
 }
 
 export interface SwapContextState {
+  doWantNfts: NFT[];
+  setDoWantNfts: React.Dispatch<React.SetStateAction<NFT[]>>;
+  dontWantNfts: NFT[];
+  setDontWantNfts: React.Dispatch<React.SetStateAction<NFT[]>>;
   swapPartner: SwapPartner | null;
   setSwapPartner: (partner: SwapPartner | null) => void;
   sendSelectedNFTs: (nfts: NFT[]) => void;
+  swapModalVisible: boolean;
+  setSwapModalVisible: React.Dispatch<React.SetStateAction<boolean>>;
   tradeSlots: TradeSlots;
   setTradeSlots: React.Dispatch<React.SetStateAction<TradeSlots>>;
   sendTradeSlots: (slots: TradeSlots) => void;
@@ -142,7 +148,10 @@ export const SwapContext = createContext<SwapContextState>(
 );
 
 export const SwapProvider: FC<SwapProviderProps> = ({ children }) => {
+  const [doWantNfts, setDoWantNfts] = useState<NFT[]>([]);
+  const [dontWantNfts, setDontWantNfts] = useState<NFT[]>([]);
   const [swapPartner, setSwapPartner] = useState<SwapPartner | null>(null);
+  const [swapModalVisible, setSwapModalVisible] = useState(false);
   const [tradeSlots, setTradeSlots] = useState<TradeSlots>({
     myNFTs: [null, null, null],
     partnerNFTs: [null, null, null],
@@ -164,6 +173,11 @@ export const SwapProvider: FC<SwapProviderProps> = ({ children }) => {
       }
     }
   }, [ablyClient, channels]);
+
+  const doWantNftsRef = useRef(doWantNfts);
+  useEffect(() => {
+    doWantNftsRef.current = doWantNfts;
+  }, [doWantNfts]);
 
   const swapPartnerRef = useRef(swapPartner);
   useEffect(() => {
@@ -201,7 +215,7 @@ export const SwapProvider: FC<SwapProviderProps> = ({ children }) => {
   const [statusOverlay, setStatusOverlay] = useState<SwapStatusOverlayProps>({ visible: false, message: '', isLoading: true });
   
   // Import the useSwapEscrow hook
-  const { initializeEscrow, depositNFTs, completeSwap, getEscrowAccountData, checkEscrowAccount, cancelSwap, loading: swapEscrowLoading, error: swapEscrowError } = useSwapEscrow();
+  const { initializeEscrow, depositAndCollectNFTs, completeSwap, getEscrowAccountData, checkEscrowAccount, cancelSwap, loading: swapEscrowLoading, error: swapEscrowError } = useSwapEscrow();
 
   // Listen for swap partner data on the Ably channel
   useEffect(() => {
@@ -492,6 +506,47 @@ export const SwapProvider: FC<SwapProviderProps> = ({ children }) => {
     sendSwapAccepted(false);
     setSwapAccepted(false);
   }
+
+  const resetTradeData = () => {
+    // Remove any NFTs listed in tradeSlots.myNFTs from the doWantNfts array
+    const tradedMyNftIds = tradeSlotsRef.current.myNFTs
+      .filter((nft): nft is NFT => nft !== null)
+      .map(nft => nft.id);
+    
+    if (tradedMyNftIds.length > 0) {
+      // Filter out the NFTs that were in my trade slots
+      const updatedDoWantNfts = doWantNftsRef.current.filter(nft => !tradedMyNftIds.includes(nft.id));
+      setDoWantNfts(updatedDoWantNfts);
+    }
+    
+    // Remove any NFTs listed in tradeSlots.partnerNFTs from swapPartner.selectedNFTs
+    if (swapPartnerRef.current && swapPartnerRef.current.selectedNFTs.length > 0) {
+      const tradedPartnerNftIds = tradeSlotsRef.current.partnerNFTs
+        .filter((nft): nft is NFT => nft !== null)
+        .map(nft => nft.id);
+      
+      if (tradedPartnerNftIds.length > 0) {
+        // Filter out the NFTs that were in partner's trade slots
+        const updatedPartnerNfts = swapPartnerRef.current?.selectedNFTs.filter(
+          nft => !tradedPartnerNftIds.includes(nft.id)
+        );
+        
+        // Update the swap partner with filtered NFTs
+        setSwapPartner({
+          ...swapPartnerRef.current,
+          selectedNFTs: updatedPartnerNfts
+        });
+      }
+    }
+    
+    // Reset trade slots
+    setTradeSlots({
+      myNFTs: [null, null, null],
+      partnerNFTs: [null, null, null],
+    });
+    
+    setSwapAccepted(false);
+  }
   
   // Initialize the swap escrow
   const initializeSwapEscrow = useCallback(async () => {
@@ -587,22 +642,31 @@ export const SwapProvider: FC<SwapProviderProps> = ({ children }) => {
       return;
     }
 
-    const signature = await depositNFTs(initializerPublicKey, takerPublicKey, {
-      isInitializer: false,
-      nftMints: escrowData.takerNftMints,
+    const signature = await depositAndCollectNFTs(initializerPublicKey, takerPublicKey, {
+      initializerNftMints: escrowData.initializerNftMints,
+      takerNftMints: escrowData.takerNftMints,
     });
     
     if (signature) {
       setStatusOverlay({
         visible: true,
-        message: 'NFTs deposited successfully',
+        message: 'NFTs deposited and collected successfully, swap complete!',
         isLoading: false
       });
       console.log('NFTs deposited with signature:', signature);
+      setTimeout(() => {
+        setStatusOverlay(prev => ({
+          ...prev,
+          visible: false
+        }));
+        if (doWantNftsRef.current.length === 0 || swapPartnerRef.current?.selectedNFTs.length === 0) {
+          setSwapModalVisible(false);
+        }
+      }, 5000);
 
       activeChannelRef.current.publish('escrow-deposited', { signature, walletAddress: selectedAccount?.publicKey.toString() });
+      resetTradeData();
 
-      completeSwapEscrow(false);
     } else {
       setStatusOverlay({
         visible: true,
@@ -611,7 +675,7 @@ export const SwapProvider: FC<SwapProviderProps> = ({ children }) => {
       });
       console.error('Error depositing NFTs');
     }
-  }, [selectedAccountRef, swapPartnerRef, tradeSlotsRef, depositNFTs]);
+  }, [selectedAccountRef, swapPartnerRef, tradeSlotsRef, depositAndCollectNFTs]);
 
   const completeSwapEscrow = useCallback(async (isInitializer: boolean) => {
     if (!selectedAccountRef.current || !swapPartnerRef.current?.walletAddress) {
@@ -654,6 +718,9 @@ export const SwapProvider: FC<SwapProviderProps> = ({ children }) => {
           visible: false
         }));
       }, 5000);
+
+      resetTradeData();
+
     } else {
       setStatusOverlay({
         visible: true,
@@ -662,14 +729,20 @@ export const SwapProvider: FC<SwapProviderProps> = ({ children }) => {
       });
       console.error('Error collecting NFTs');
     }
-  }, [selectedAccountRef, swapPartnerRef, tradeSlotsRef, depositNFTs]);
+  }, [selectedAccountRef, swapPartnerRef, tradeSlotsRef, completeSwap]);
 
   return (
     <SwapContext.Provider
       value={{
+        doWantNfts,
+        setDoWantNfts,
+        dontWantNfts,
+        setDontWantNfts,
         swapPartner,
         setSwapPartner,
         sendSelectedNFTs,
+        swapModalVisible,
+        setSwapModalVisible,
         tradeSlots,
         setTradeSlots,
         sendTradeSlots,
@@ -688,7 +761,7 @@ export const SwapProvider: FC<SwapProviderProps> = ({ children }) => {
         visible={escrowModalVisible}
         onClose={() => setEscrowModalVisible(false)}
         escrowData={currentEscrowData}
-        depositNFTs={depositNFTs}
+        depositAndCollectNFTs={depositAndCollectNFTs}
         completeSwap={completeSwap}
         cancelEscrow={cancelSwap}
       />

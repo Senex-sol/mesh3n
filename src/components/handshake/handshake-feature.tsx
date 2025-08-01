@@ -13,7 +13,5 @@ export function HandshakeFeature() {
 
 const styles = StyleSheet.create({
   buttonGroup: {
-    marginTop: 16,
-    flexDirection: "row",
   },
 });

@@ -96,7 +96,7 @@ interface NFT {
 
 const { width } = Dimensions.get("window");
 
-export default function NFTGalleryScreen() {
+export function NFTGalleryScreen() {
   // Always define all hooks at the top level
   const { selectedAccount } = useAuthorization();
   const [page, setPage] = useState(1);
@@ -211,7 +211,7 @@ export default function NFTGalleryScreen() {
         onMoveShouldSetPanResponder: (_, gestureState) => {
           // Slightly favor horizontal movements by applying a bias factor
           // This makes the swipe detection more sensitive to horizontal movements
-          const horizontalBias = 0.6; // Bias factor (lower = more horizontal bias)
+          const horizontalBias = 0.5; // Bias factor (lower = more horizontal bias)
           const isHorizontalSwipe = Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * horizontalBias;
           // Also require a minimum movement to start handling the gesture
           const hasMinimumMovement = Math.abs(gestureState.dx) > 6; // Slightly reduced threshold
@@ -642,22 +642,27 @@ export default function NFTGalleryScreen() {
 
   // Render partner status and swap button
   const renderPartnerSection = () => {
+    const hasSelected = doWantNfts.length > 0;
     const hasPartnerNFTs = swapPartner?.selectedNFTs && swapPartner.selectedNFTs.length > 0;
     
     return (
       <View style={styles.partnerContainer}>
-        {!hasPartnerNFTs ? (
-          <View style={styles.partnerEmptyContainer}>
-            <Text style={styles.partnerEmptyText}>Waiting for partner to select NFTs...</Text>
-          </View>
-        ) : (
+        {hasSelected && hasPartnerNFTs ? (
           <TouchableOpacity 
             style={[styles.startSwapButton, !hasPartnerNFTs && styles.disabledButton]}
             onPress={() => setSwapModalVisible(true)}
             disabled={!hasPartnerNFTs}
           >
-            <Text style={styles.startSwapButtonText}>Start Swap ({swapPartner.selectedNFTs.length} NFTs)</Text>
+            <Text style={styles.startSwapButtonText}>Start Swap</Text>
           </TouchableOpacity>
+        ) : hasSelected ? (
+          <View style={styles.partnerEmptyContainer}>
+            <Text style={styles.partnerEmptyText}>Waiting for partner to select NFTs...</Text>
+          </View>
+        ) : (
+          <View style={styles.partnerEmptyContainer}>
+            <Text style={styles.partnerEmptyText}>Swipe right on an NFT to get started...</Text>
+          </View>
         )}
       </View>
     );
@@ -957,6 +962,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 30,
+    paddingTop: 0,
+    paddingBottom: 100,
   },
   centerText: {
     fontSize: 18,

@@ -283,26 +283,34 @@ export function HandshakeStart() {
           <Text style={styles.detailText}>Hold the back of your phone against the back of the other phone.</Text>
         </View>
       ) : (
-        <>
-          <Button
-            mode="contained"
-            disabled={authorizationInProgress}
-            onPress={handleHandshakePress}
-            style={{ flex: 1 }}
-          >
-            Start Handshake
-          </Button>
-        </>
+        <View style={styles.centerContainer}>
+          <Text style={styles.titleText}>Welcome to Mesh3n!</Text>
+          <Text style={styles.detailText}>Click the button to start your journey.</Text>
+          <View style={styles.test}>
+            <Button
+              mode="contained"
+              disabled={authorizationInProgress}
+              onPress={handleHandshakePress}
+              style={{ flex: 1, height: 42 }}
+            >
+              Start Handshake
+            </Button>
+          </View>
+        </View>
       )}
     </>
   );
 }
 
 const styles = StyleSheet.create({
+  test: {
+    flexDirection: "row",
+  },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    width: '100%',
   },
   titleText: {
     fontSize: 18,
@@ -313,7 +321,7 @@ const styles = StyleSheet.create({
   },
   detailText: {
     fontSize: 16,
-    marginBottom: 20,
+    marginBottom: 40,
     color: '#333',
     textAlign: 'center',
   },

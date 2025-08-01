@@ -8,9 +8,10 @@ import {
   NavigationContainer,
 } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import React from "react";
+import React, { useState } from "react";
 import { Appearance, useColorScheme } from "react-native";
 import * as Screens from "../screens";
+import { SplashScreen } from "../screens/SplashScreen";
 import { HomeNavigator } from "./HomeNavigator";
 import { StatusBar } from "expo-status-bar";
 import {
@@ -18,6 +19,7 @@ import {
   MD3LightTheme,
   adaptNavigationTheme,
 } from "react-native-paper";
+import { TopBar } from "../components/top-bar/top-bar-feature";
 
 /**
  * This type allows TypeScript to know what routes are defined in this navigator
@@ -50,6 +52,7 @@ const Stack = createNativeStackNavigator();
 const AppStack = () => {
   return (
     <Stack.Navigator initialRouteName={"NFT Gallery"}>
+      <Stack.Screen name="NFT Gallery" options={{ headerShown: false }} component={Screens.NFTGalleryScreen} />
       <Stack.Screen
         name="HomeStack"
         component={HomeNavigator}
@@ -65,6 +68,7 @@ export interface NavigationProps
   extends Partial<React.ComponentProps<typeof NavigationContainer>> {}
 
 export const AppNavigator = (props: NavigationProps) => {
+  const [isLoading, setIsLoading] = useState(true);
   const colorScheme = useColorScheme();
   const { LightTheme, DarkTheme } = adaptNavigationTheme({
     reactNavigationLight: NavigationDefaultTheme,
@@ -94,7 +98,14 @@ export const AppNavigator = (props: NavigationProps) => {
       {...props}
     >
       <StatusBar />
-      <AppStack />
+      {isLoading ? (
+        <SplashScreen onFinish={() => setIsLoading(false)} />
+      ) : (
+        <>
+          <TopBar />
+          <AppStack />
+        </>
+      )}
     </NavigationContainer>
   );
 };

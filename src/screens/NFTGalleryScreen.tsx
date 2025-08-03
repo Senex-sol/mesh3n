@@ -8,6 +8,7 @@ import { HandshakeFeature } from "../components/handshake/handshake-feature";
 import { useAbly } from "../utils/AblyProvider";
 import { useSwap } from "../utils/SwapProvider";
 import { SwapStatusOverlay } from '../components/SwapStatusOverlay';
+import ConfettiCannon from 'react-native-confetti-cannon';
 
 // Define types for NFT data structure
 interface NFTFile {
@@ -111,6 +112,7 @@ export function NFTGalleryScreen() {
     dontWantNfts,
     setDontWantNfts,
     swapPartner,
+    setSwapPartner,
     sendSelectedNFTs,
     swapModalVisible,
     setSwapModalVisible,
@@ -121,7 +123,10 @@ export function NFTGalleryScreen() {
     acceptSwap,
     unacceptSwap,
     isConnected,
-    statusOverlay
+    statusOverlay,
+    setStatusOverlay,
+    showConfetti,
+    confettiRef
   } = useSwap();
   const LIMIT = 20; // Number of NFTs per page
 
@@ -132,6 +137,12 @@ export function NFTGalleryScreen() {
   useEffect(() => {
     if (swapAccepted) {
       unacceptSwap();
+      if (statusOverlay.message == 'Waiting for partner to accept...') {
+        setStatusOverlay(prev => ({
+          ...prev,
+          visible: false
+        }));
+      }
     }
   }, [tradeSlots]);
   
@@ -636,6 +647,18 @@ export function NFTGalleryScreen() {
           message={statusOverlay.message}
           isLoading={statusOverlay.isLoading}
         />
+        {showConfetti && (
+          <ConfettiCannon
+            count={200}
+            origin={{x: -10, y: 0}}
+            fallSpeed={3000}
+            fadeOut={true}
+            autoStart={true}
+            ref={confettiRef}
+            explosionSpeed={350}
+            colors={['#FFD700', '#FF4500', '#00BFFF', '#32CD32', '#FF1493', '#9400D3']}
+          />
+        )}
       </Modal>
     );
   };

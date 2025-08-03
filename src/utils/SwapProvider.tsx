@@ -141,6 +141,9 @@ export interface SwapContextState {
   unacceptSwap: () => void;
   isConnected: boolean;
   statusOverlay: SwapStatusOverlayProps;
+  setStatusOverlay: React.Dispatch<React.SetStateAction<SwapStatusOverlayProps>>;
+  showConfetti: boolean;
+  confettiRef: React.RefObject<any>;
 }
 
 export const SwapContext = createContext<SwapContextState>(
@@ -161,8 +164,10 @@ export const SwapProvider: FC<SwapProviderProps> = ({ children }) => {
   const [isConnected, setIsConnected] = useState(false);
   const [iMadeLastSwapChange, setIMadeLastSwapChange] = useState(false);
   const [swapAccepted, setSwapAccepted] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
   
   const activeChannelRef = useRef<any | null>(null);
+  const confettiRef = useRef<any>(null);
   useEffect(() => {
     if (ablyClient) {
       const channelKeys = Object.keys(channels);
@@ -449,6 +454,13 @@ export const SwapProvider: FC<SwapProviderProps> = ({ children }) => {
       return;
     }
 
+    if (swapPartner?.swapAccepted) {
+      setSwapPartner({
+        ...swapPartner,
+        swapAccepted: false
+      });
+    }
+
     const activeChannelName = channelKeys[0]; // Use the first channel
     const channel = channels[activeChannelName];
     
@@ -653,12 +665,14 @@ export const SwapProvider: FC<SwapProviderProps> = ({ children }) => {
         message: 'NFTs deposited and collected successfully, swap complete!',
         isLoading: false
       });
+      setShowConfetti(true);
       console.log('NFTs deposited with signature:', signature);
       setTimeout(() => {
         setStatusOverlay(prev => ({
           ...prev,
           visible: false
         }));
+        setShowConfetti(false);
         if (doWantNftsRef.current.length === 0 || swapPartnerRef.current?.selectedNFTs.length === 0) {
           setSwapModalVisible(false);
         }
@@ -710,6 +724,7 @@ export const SwapProvider: FC<SwapProviderProps> = ({ children }) => {
         message: 'NFTs collected successfully, swap complete!',
         isLoading: false
       });
+      setShowConfetti(true);
       console.log('NFTs collected with signature:', signature);
 
       setTimeout(() => {
@@ -717,6 +732,7 @@ export const SwapProvider: FC<SwapProviderProps> = ({ children }) => {
           ...prev,
           visible: false
         }));
+        setShowConfetti(false);
       }, 5000);
 
       resetTradeData();
@@ -751,7 +767,10 @@ export const SwapProvider: FC<SwapProviderProps> = ({ children }) => {
         acceptSwap,
         unacceptSwap,
         isConnected,
-        statusOverlay
+        statusOverlay,
+        setStatusOverlay,
+        showConfetti,
+        confettiRef,
       }}
     >
       {children}

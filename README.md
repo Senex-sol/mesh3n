@@ -1,105 +1,77 @@
-# Solana Mobile Expo Template
+<div align="center">
+  <img src="./assets/top_logo.png" alt="Mesh3n Logo" width="200" />
+  <h1>Mesh3n</h1>
+  <p><strong>Peer-to-peer NFT swapping made simple</strong></p>
+</div>
 
-This template is a ready-to-go Android Expo dApp that offers:
+<p align="center">
+  <a href="#features">Features</a> •
+  <a href="#tech-stack">Tech Stack</a> •
+  <a href="#installation">Installation</a> •
+  <a href="#usage">Usage</a>
+</p>
 
-- Solana libraries: `web3.js`, Mobile Wallet Adapter, and `spl-token`.
-- Required polyfills like `crypto` and `Buffer` configured.
-- Pre-built React UI and re-usable hooks and code patterns like `useMobileWallet`.
+## ✨ Features
 
-**This is only fully functional on Android.**
+- **Secure P2P NFT Swapping** - Trade Solana NFTs directly with other users
+- **NFC Handshake** - Establish connections by tapping phones together
+- **Real-time Updates** - See partner's selections instantly
+- **On-chain Settlement** - All swaps are secured by Solana blockchain
+- **Intuitive UI** - Beautiful interface with confetti celebrations on successful swaps
 
-<table>
-  <tr>
-    <td align="center">
-      <img src="./screenshots/screenshot1.png" alt="Scaffold dApp Screenshot 1" width=300 />
-    </td>
-    <td align="center">
-      <img src="./screenshots/screenshot2.png" alt="Scaffold dApp Screenshot 2" width=300 />
-    </td>
-    <td align="center">
-      <img src="./screenshots/screenshot3.png" alt="Scaffold dApp Screenshot 3" width=300 />
-    </td>
-  </tr>
-</table>
+## 🛠️ Tech Stack
 
-## Tech Stack
+- **Frontend**: React Native, Expo, TypeScript
+- **Blockchain**: Solana (web3.js, Mobile Wallet Adapter)
+- **Communication**: Ably for real-time messaging
+- **UI Components**: React Native Paper
+- **Navigation**: React Navigation
+- **Smart Contract**: Custom Solana escrow program
 
-| Library               | Category          | Version | Description                                           |
-| --------------------- | ----------------- | ------- | ----------------------------------------------------- |
-| React Native          | Mobile Framework  | v0.73   | The best cross-platform mobile framework              |
-| Expo                  | SDK               | v50     | Allows (optional) Expo modules                        |
-| React                 | UI Framework      | v18     | The most popular UI framework in the world            |
-| Mobile Wallet Adapter | SDK               | v2.0    | Connect and request signing from mobile wallet apps   |
-| Solana web3.js        | SDK               | v1.78   | General Solana library for transactions and RPCs      |
-| spl-token             | SDK               | v0.41   | Library for building with Solana SPL tokens           |
-| React Native Paper    | Component Library | v18     | Production-ready components following Material Design |
-| React Navigation      | Navigation        | v6      | Performant and consistent navigation framework        |
-| React Query           | State management  | v5.24   | Async query management                                |
-| TypeScript            | Language          | v5      | Static typechecking                                   |
-| AsyncStorage          | Persistence       | v1      | State persistence                                     |
+## 📱 Screenshots
 
-## Quick Start
+<div align="center">
+  <table>
+    <tr>
+      <td align="center">
+        <img src="./screenshots/screenshot1.png" alt="NFT Gallery" width="250" />
+        <br />
+        <em>NFT Gallery</em>
+      </td>
+      <td align="center">
+        <img src="./screenshots/screenshot2.png" alt="Swap Interface" width="250" />
+        <br />
+        <em>Swap Interface</em>
+      </td>
+      <td align="center">
+        <img src="./screenshots/screenshot3.png" alt="Handshake" width="250" />
+        <br />
+        <em>NFC Handshake</em>
+      </td>
+    </tr>
+  </table>
+</div>
 
-### Prerequisites
+## 🚀 Installation
 
-- A free [Expo](https://expo.dev/) account.
-- An Android device/emulator to test your app
-  - Install an MWA compliant wallet app on your device/emulator.
-- If using Expo's cloud service `eas build`, no further setup is required.
-- If building locally:
-  - React Native and Android Envrionment [setup](https://docs.solanamobile.com/getting-started/development-setup)
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/mesh3n.git
 
-### Initialize
+# Install dependencies
+cd mesh3n
+npm install
 
-Run the CLI command:
-
+# Start the app
+npx expo start
 ```
-yarn create expo-app --template @solana-mobile/solana-mobile-expo-template
-```
 
-Choose your project name then navigate into the directory.
+## 📖 Usage
 
-### Build and run the app
+1. Connect your Solana wallet
+2. Tap phones to establish connection
+3. Select NFTs to trade
+4. Confirm the swap
+5. Celebrate with confetti! 🎉
 
-Once your app is initialized, follow the **["Running the app"](https://docs.solanamobile.com/react-native/expo#running-the-app)** guide to launch the template as a custom development build.
-
-## Troubleshooting
-
-- `Metro has encountered an error: While trying to resolve module @solana-mobile/mobile-wallet-adapter-protocol...`
-
-  - This is an on-going issue when using `npm install` to install the Expo template.
-  - To mitigate, clean your project dependencies and reinstall with `yarn install`
-
-- `The package 'solana-mobile-wallet-adapter-protocol' doesn't seem to be linked. Make sure: ...`
-
-  - Ensure you are _NOT_ using Expo Go to run your app.
-  - You need to be using an [Expo custom development build](https://docs.solanamobile.com/react-native/expo#custom-development-build), rather than Expo Go.
-
-- `failed to connect to...`
-
-  - This is an Expo error that can occur when trying to connect to the dev server on certain Wifi networks.
-  - To fix, try starting the dev server with the `--tunnel` command (`npx expo start --dev-client --tunnel`)
-
-- `Error: crypto.getRandomValues() not supported`
-  - This is a polyfill issue when trying to use certain functions from the `@solana/web3.js` in a React Native/Expo environment.
-  - To fix, ensure your App properly imports and uses the polyfills like in this [guide](http://docs.solanamobile.com/react-native/expo#step-3-update-appjs-with-polyfills).
-
-<br>
-
-- `error Failed to load configuration of your project.`
-  - Same as above, but for `yarn`. [Uninstall and reinstall](https://github.com/react-native-community/cli#updating-the-cli) the CLI through yarn.
-
-<br>
-
-- `Looks like your iOS environment is not properly set`:
-  - You can ignore this during template initialization and build the Android app as normal. This template is only compatible with Android.
-
-<br>
-
-- `Usage Error: It seems you are trying to add a package using a https:... url; we now require package names to be explicitly specified.`
-  - This error happens on certain versions of `yarn`, and occurs if you try to initialize the template through the Github repo URL, rather than the npm package. To avoid this, use the `@solana-mobile/solana-mobile-dapp-scaffold` package as specified, or downgrade your `yarn` version to classic (1.22.x).
-
-<br>
-
-- `error Couldn't find the ".../@solana-mobile/solana-mobile-dapp-scaffold/template.config.js file inside "@solana-mobile/solana-mobile-dapp-scaffold" template.`
-  - This is a [known error](https://github.com/react-native-community/cli/issues/1924) that occurs with certain versions of `yarn` (>= 3.5.0). It is fixed by running the cli command with the `--npm` flag or downgrading your version of `yarn`.
+> **Note**: This app is currently optimized for Android devices

@@ -34,12 +34,12 @@ export const defaultClusters: Readonly<Cluster[]> = [
   {
     name: "devnet",
     // endpoint: clusterApiUrl("devnet"),
-    endpoint: "https://devnet.helius-rpc.com/?api-key=762bb5e2-ed26-4f9d-aabc-daaa750d5cd4",
+    endpoint: "https://devnet.helius-rpc.com/?api-key=<Helius API Key>",
     network: ClusterNetwork.Devnet,
   },
   {
     name: "mainnet-beta",
-    endpoint: "https://mainnet.helius-rpc.com/?api-key=762bb5e2-ed26-4f9d-aabc-daaa750d5cd4",
+    endpoint: "https://mainnet.helius-rpc.com/?api-key=<Helius API Key>",
     network: ClusterNetwork.Mainnet,
   },
   {

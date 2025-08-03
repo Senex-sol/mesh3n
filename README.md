@@ -1,6 +1,5 @@
 <div align="center">
   <img src="./assets/top_logo.png" alt="Mesh3n Logo" width="200" />
-  <h1>Mesh3n</h1>
   <p><strong>Peer-to-peer NFT swapping made simple</strong></p>
 </div>
 

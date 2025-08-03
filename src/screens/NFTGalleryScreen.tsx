@@ -7,7 +7,7 @@ import { SignInFeature } from "../components/sign-in/sign-in-feature";
 import { HandshakeFeature } from "../components/handshake/handshake-feature";
 import { useAbly } from "../utils/AblyProvider";
 import { useSwap } from "../utils/SwapProvider";
-import { SwapStatusOverlay } from '../components/SwapStatusOverlay';
+import { SwapStatusOverlay } from '../components/ui/swap-status-overlay';
 import ConfettiCannon from 'react-native-confetti-cannon';
 
 // Define types for NFT data structure

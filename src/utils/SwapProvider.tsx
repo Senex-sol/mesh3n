@@ -13,7 +13,7 @@ import { useSwapEscrow } from './useSwapEscrow';
 import { alertAndLog } from './alertAndLog';
 import { useAbly } from "./AblyProvider";
 import { useAuthorization } from "./useAuthorization";
-import { EscrowModal } from '../components/EscrowModal';
+import { EscrowModal } from '../components/ui/escrow-modal';
 import { EscrowAccountData } from './SwapEscrowClient';
 
 // Define the NFT interface based on the one in NFTGalleryScreen
